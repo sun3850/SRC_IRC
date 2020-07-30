@@ -2,10 +2,8 @@ import cv2
 import numpy as np
 from threading import Thread
 
-def enum(*sequential, **named):
-    enums = dict(zip(sequential, range(len(sequential))), **named)
-    return type('Enum', (), enums)
-
+DONT_DEBUG = False
+DEBUG = True
 #COLORS HSV THRESHOLD RANGE
 COLORS = dict()
 COLORS["YELLOW"] = {
@@ -45,9 +43,9 @@ COLORS[""] = {
 
 class ImageProcessor:
     def __init__(self, height, width):
-        self.src = np.zeros((height, width, 3), np.uint8)
+        self.__src = np.zeros((height, width, 3), np.uint8)
 
-    def getBinImage(self, color="RED"):
+    def getBinImage(self, color="RED", debug=False): # 인자로 넘겨 받은 색상만 남기고 리턴
         img = self.getImage()
         img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
         lower1, lower2, lower3  = COLORS[color]["lower"]
@@ -61,36 +59,23 @@ class ImageProcessor:
         kernel = np.ones(k, np.uint8)
         img_mask = cv2.morphologyEx(img_mask, cv2.MORPH_OPEN, kernel)
         img_mask = cv2.morphologyEx(img_mask, cv2.MORPH_CLOSE, kernel)
-        img_result = cv2.bitwise_and(img, img, mask=img_mask)
-        cv2.imshow("result", img_result)
-        # cv2.imshow("mask", img_mask)
+        img_result = cv2.bitwise_and(img, img, mask=img_mask) # 해당 색상값만 남기기
+
+        if(debug):
+            self.debug(img_result)
+
+        return img_result
+
+    def updateImage(self, src): # 카메라 쓰레드가 fresh 이미지를 계속해서 갱신해줌
+        self.__src = src
+
+    def debug(self, result): # 디버그용 (영상을 출력해서 봐야할때)
+        cv2.imshow("debug", result)
         cv2.waitKey(1)
 
-    def updateImage(self, src):
-        self.src = src
+    def getImage(self): # 이미지를 필요로 할때
+        return self.__src.copy()
 
-    def getImage(self):
-        return self.src.copy()
-
-    def isObstacle(self, obstacle):
-        return True
-
-    def traceObstacle(self, obstacle): pass
-
-    def isYellowLine(self): return False
-
-    def detectYellowLine(self):
-        self.src = self.updateImage()
-
-    def imshow(self):
-        while(True):
-            cv2.imshow("debug", self.getImage())
-            cv2.waitKey(1)
-
-    def countObstacle(self, obstacle):
-        pass
-
-    def positionOfObstacle(self): pass
 
 
 if __name__ == "__main__":
@@ -99,9 +84,7 @@ if __name__ == "__main__":
     imageProcessor = ImageProcessor(cam.width, cam.height)
     cam_t = Thread(target=cam.produce, args=(imageProcessor,))  # 카메라 센싱 쓰레드
     cam_t.start()  # 카메라 프레임 공급 쓰레드 동작
-    show_t = Thread(target=imageProcessor.imshow)
-    show_t.start()
 
     while(True):
-        imageProcessor.getBinImage(color="RED1")
+        i = imageProcessor.getBinImage(color="RED1", debug=DEBUG)
     pass
