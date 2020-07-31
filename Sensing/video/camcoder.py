@@ -8,9 +8,11 @@ import time  # time 라이브러리
 ###################################
 
 CAM_ID = 0
+CODEC_AT_WINDOW = 'DIVX'
+CODEC_AT_UNIX = 'MJPG'
 
 cam = cv2.VideoCapture(CAM_ID)  # 카메라 생성
-fourcc = cv2.VideoWriter_fourcc(*'DIVX') # 녹화기 생성
+fourcc = cv2.VideoWriter_fourcc(*CODEC_AT_UNIX) # 녹화기 생성
 out = cv2.VideoWriter('output.avi', fourcc, 30.0, (640,480))
 
 cap_height = int(cam.get(4))
