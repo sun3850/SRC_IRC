@@ -1,9 +1,23 @@
 from Sensing.CameraSensor import Camera
-from Sensing.ImageProcessing import ImageProcessor
-from Actuating.Motion import Motion
-# from multiprocessing import Process
+from Sensing.ImageProcessing import ImageProcessor, Target
+from Actuating.Motion import Motion, MOTION
 from threading import Thread
-import time
+
+baseline = (bx, by) = (320, 420)
+
+def enum(*sequential, **named):
+    enums = dict(zip(sequential, range(len(sequential))), **named)
+    return type('Enum', (), enums)
+
+COLORS = enum(RED=1, YELLOW=2, BLUE=3)
+TARGETS = enum(PEOPLE = COLORS.RED)
+
+# class Target:
+#     def __init__(self):
+#         self.mainTarget =
+#         self.target =
+#     def update(self):
+#         self.target
 
 class Robot:
     def __init__(self):
@@ -13,8 +27,30 @@ class Robot:
         self.cam_t.start() # 카메라 프레임 공급 쓰레드 동작
         self.motion = Motion()
         self.motion.run() # 모션 시리얼 활성화
+        # self.target = Target()
 
-    def findTarget(self): pass # 로봇의 행동이 끝나면 다음 타깃을 찾는다.
+    def traceTarget(self):
+        VIEW = ["DOWN60", "DOWN45", "DOWN35", "DOWN30", "DOWN10"]
+        idx = 0
+        while(True):
+            target = self.imageProcessor.findTarget(color="RED")
+
+            (dx, dy) = target.getDistance(baseline=baseline)
+            print("distance gap . dx : {} , dy : {}".format(dx, dy))
+            if (-30 < dx < 30 and dy > 0 ):
+                self.motion.walk()
+            elif ( dx < -40 and dy > 0) : # 오른쪽
+                self.motion.move(direct=MOTION["DIR"]["RIGHT"])
+            elif ( dx > 40 and dy > 0) : # 왼쪽
+                self.motion.move(direct=MOTION["DIR"]["LEFT"])
+            elif ( dy < 0 ) :
+                self.motion.head(view=MOTION["VIEW"][VIEW[idx]])
+                idx += 1
+
+            if idx == len(VIEW):
+                return
+
+
 
     # find 찾는거 trace 쫓는거
 
