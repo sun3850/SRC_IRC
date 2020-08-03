@@ -30,7 +30,7 @@ class Motion:
         self.Read_RX = 0
         self.receiving_exit = 1
         self.threading_Time = 0.01
-        self.lock = None
+        self.lock = False
         #self.distance = 99
         BPS = 4800  # 4800,9600,14400, 19200,28800, 57600, 115200
 
@@ -93,6 +93,7 @@ class Motion:
         self.TX_data_py2(MOTION["SIGNAL"]["INIT"])
         while not self.getRx():
             print(self.getRx())
+        self.lock = False
         pass
 
     def walk(self, walk_signal=MOTION["WALK"]["START"], speed=MOTION["SPEED"]["SLOW"]):
@@ -101,6 +102,7 @@ class Motion:
         self.TX_data_py2(MOTION["MODE"]["WALK"] + walk_signal + speed)
         while not self.getRx():
             print(self.getRx())
+        self.lock = False
         pass
 
     def head(self, view=MOTION["VIEW"]["DOWN80"], direction=MOTION["DIR"]["CENTER"]):
@@ -108,11 +110,11 @@ class Motion:
         self.TX_data_py2(direction)
         while not self.getRx():
             print(self.getRx())
-        pass
 
         self.TX_data_py2(view)
         while not self.getRx():
             print(self.getRx())
+        self.lock = False
         pass
 
     def move(self, direct=MOTION["DIR"]["LEFT"], repeat=1):
@@ -120,6 +122,7 @@ class Motion:
             self.TX_data_py2(MOTION["MODE"]["MOVE"] + direct)
         while not self.getRx():
             print(self.getRx())
+        self.lock = False
         pass
 
     def turn(self, direct=MOTION["DIR"]["LEFT"], repeat=1):
@@ -127,12 +130,14 @@ class Motion:
             self.TX_data_py2(direct + MOTION["MODE"]["TURN"])
         while not self.getRx():
             print(self.getRx())
+        self.lock = False
         pass
 
     def grab(self):
         self.TX_data_py2(MOTION["GRAB"])
         while not self.getRx():
             print(self.getRx())
+        self.lock = False
         pass
 
 # Tx를 보낸 후 응답을 받을 때 까지 Lock을 걸기 반대쪽에서 보낸 Rx가 유실 될 수도 있으니, 일정시간이 지나도 답이 안오면 재요청
