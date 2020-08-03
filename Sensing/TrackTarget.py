@@ -11,7 +11,7 @@ class TrackTarget():
         self.centers = []  # 로봇으로부터 가장 가까운 물체일수록 x, y, w, h 순으로 좌표의 값을 담음
 
 
-        # self.motion = Motion() # 로봇과 통신
+        self.motion = Motion() # 로봇과 통신
         ############################# 색감 지정하기 ############################################
         self.hsv, self.lower_blue1, self.upper_blue1, self.lower_blue2, self.upper_blue2, \
         self.lower_blue3, self.upper_blue3 = self.find_target()
@@ -79,7 +79,7 @@ class TrackTarget():
     def changeAngle(self):
         # 목각도를 변경하기위해 로봇에게 통신을 한다음 다시 track을 시작한다
         print("need to change Angle!")
-      #  self.motion.walk(MOTION["WALK"]["END"])  # 로봇의 전진을 끝내는거
+        self.motion.walk(MOTION["WALK"]["END"])  # 로봇의 전진을 끝내는거
 
         # 목각도가 최대한으로 꺾이는 경우 -> 물건을 집는 알고리즘을 호출한다.
         if self.neckAngle != 90:
@@ -163,7 +163,7 @@ class TrackTarget():
 
         termination = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 1)
 
-        # self.motion.walk()  # 타깃을 발견했음 로봇이 움직임 전진
+        self.motion.walk()  # 타깃을 발견했음 로봇이 움직임 전진
 
 
         # 이제 객체를 camshift로 추적한다.
