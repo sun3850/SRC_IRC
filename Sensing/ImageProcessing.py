@@ -18,9 +18,9 @@ COLORS["BLUE"] = {
     "lower" : [[],[],[]],
     "upper" : [[],[],[]]
 }
-COLORS["RED1"] = {
-    "upper" : [[181,163,200],[181,163,200],[181,163,200]],
-    "lower" : [[56,75,164],[56,75,164],[56,75,164]]
+COLORS["RED"] = {
+    "upper" : [[181,255,107],[181,255,107],[181,255,107]],
+    "lower" : [[125,163,32],[125,163,32],[125,163,32]]
 }
 COLORS["RED2"] = {
     "lower" : [[139,145,186],[139,145,186],[139,145,186]],
@@ -57,7 +57,7 @@ class ImageProcessor:
 
     def getBinImage(self, color="RED", debug=False): # 인자로 넘겨 받은 색상만 남기고 리턴
         img = self.getImage()
-        img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
+        img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         lower1, lower2, lower3  = COLORS[color]["lower"]
         upper1, upper2, upper3 = COLORS[color]["upper"]
         img_mask1 = cv2.inRange(img_hsv, np.array(lower1), np.array(upper1))
@@ -89,7 +89,7 @@ class ImageProcessor:
     def findTarget(self, color="RED", debug = False):
         # 범위 값으로 HSV 이미지에서 마스크를 생성합니다.
         img = self.getImage()
-        img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2YUV)
+        img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         lower1, lower2, lower3 = COLORS[color]["lower"]
         upper1, upper2, upper3 = COLORS[color]["upper"]
         img_mask1 = cv2.inRange(img_hsv, np.array(lower1), np.array(upper1))
@@ -113,10 +113,10 @@ class ImageProcessor:
             if np.any(np.isnan(centroid)):  # 배열에 하나이상의 원소라도 참이라면 true (즉, 하나이상의 중심점이 숫자가 아니면)
                 continue
             _, _, _, _, area = stats[idx]
-            if area > 500:
+            if area > 100:
                 self.targets.append(Target(stats[idx], centroid))  #
         if self.targets:
-            self.targets.sort(key=lambda target: target.dy)
+            self.targets.sort(key=lambda x: x.y)
             target = self.targets[0]
             return target
         else:

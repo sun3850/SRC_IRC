@@ -111,7 +111,7 @@ class Motion:
         while not self.getRx():
             print(self.getRx())
 
-        self.TX_data_py2(view)
+        self.TX_data_py2(MOTION["MODE"]["VIEW"]+view)
         while not self.getRx():
             print(self.getRx())
         self.lock = False
@@ -144,6 +144,8 @@ class Motion:
 
 
 if __name__ == '__main__':
+    temp = Motion()
+    temp.head(view=MOTION["VIEW"]["DOWN60"])
     pass
 
 

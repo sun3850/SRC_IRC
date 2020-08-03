@@ -5,13 +5,6 @@ from threading import Thread
 
 baseline = (bx, by) = (320, 420)
 
-def enum(*sequential, **named):
-    enums = dict(zip(sequential, range(len(sequential))), **named)
-    return type('Enum', (), enums)
-
-COLORS = enum(RED=1, YELLOW=2, BLUE=3)
-TARGETS = enum(PEOPLE = COLORS.RED)
-
 # class Target:
 #     def __init__(self):
 #         self.mainTarget =
@@ -22,31 +15,36 @@ TARGETS = enum(PEOPLE = COLORS.RED)
 class Robot:
     def __init__(self):
         self.cam = Camera(0.1)
-        self.imageProcessor = ImageProcessor(cam.width, cam.height)
-        self.cam_t = Thread(target=cam.produce, args=(imageProcessor,)) #카메라 센싱 쓰레드
+        self.imageProcessor = ImageProcessor(self.cam.width, self.cam.height)
+        self.cam_t = Thread(target=self.cam.produce, args=(self.imageProcessor,)) #카메라 센싱 쓰레드
         self.cam_t.start() # 카메라 프레임 공급 쓰레드 동작
         self.motion = Motion()
-        self.motion.run() # 모션 시리얼 활성화
-        # self.target = Target()
 
     def traceTarget(self):
         VIEW = ["DOWN60", "DOWN45", "DOWN35", "DOWN30", "DOWN10"]
         idx = 0
+        self.motion.init()
         while(True):
-            target = self.imageProcessor.findTarget(color="RED")
-
+            print("here1")
+            target = self.imageProcessor.findTarget(color="RED", debug=True)
+            print("here2")
+            if not target :
+                continue
             (dx, dy) = target.getDistance(baseline=baseline)
             print("distance gap . dx : {} , dy : {}".format(dx, dy))
             if (-30 < dx < 30 and dy > 0 ):
+                print("walk")
                 self.motion.walk()
+                
             elif ( dx < -40 and dy > 0) : # 오른쪽
                 self.motion.move(direct=MOTION["DIR"]["RIGHT"])
+                
             elif ( dx > 40 and dy > 0) : # 왼쪽
                 self.motion.move(direct=MOTION["DIR"]["LEFT"])
             elif ( dy < 0 ) :
                 self.motion.head(view=MOTION["VIEW"][VIEW[idx]])
                 idx += 1
-
+                print("head down")
             if idx == len(VIEW):
                 return
 
