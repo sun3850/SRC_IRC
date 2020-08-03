@@ -3,23 +3,24 @@ import time
 from threading import Thread
 
 MOTION = {
-    "SIGNAL": {"INIT": 29},
-    "MODE": {"WALK": 0, "STABLE": 122, "MOVE": 15, "VIEW": 29, "TURN": 111},
-
-    "VIEW": {"DOWN80": 0, "DOWN60": 2, "FRONT": 5, "DOWN45": 6, "DOWN30": 7},
-    # 왼쪽, 오른쪽 각각 45도씩
-    "DIR": {"CENTER": 21, "LEFT": 22, "RIGHT": 24},
+    "SIGNAL": {"INIT": 32},
+    "MODE": {"WALK": 0, "STABLE": 122, "MOVE": 19, "VIEW": 32, "TURN": 7},
+    #머리 상하좌우 회전
+    "VIEW": {"DOWN80": 0, "DOWN60": 1, "DOWN45": 2, "DOWN35": 3, "DOWN30": 4, "DOWN10": 5},
+    # 로봇 몸 전체 회전 10도/머리 좌우 회전
+    "DIR": {"LEFT": 0, "RIGHT": 1, "LEFT30": 6, "LEFT45": 7, "LEFT60": 8, "LEFT90": 9, "RIGHT30": 10,
+            "RIGHT45": 11, "RIGHT60": 12, "RIGHT90": 13, "CENTER": 21},
     "SCOPE": {"SHORT": 0, "LONG": 5},
-    "SPEED": {"FAST": 0, "SLOW": 3},
+    "SPEED": {"FAST": 0, "RUN": 1, "SLOW": 2},
 
     "WALK": {
-        "START": 8,
-        "END": 101,
+        "START": 9,
+        "END": 400,
         "FRONT": 102,
-        "BACK": 12
+        "BACK": 28
     },
 
-    "GRAB": 33
+    "GRAB": 31
 }
 
 class Motion:
@@ -87,10 +88,10 @@ class Motion:
         self.TX_data_py2(MOTION["SIGNAL"]["INIT"])
         pass
 
-    def walk(self, speed=MOTION["SPEED"]["SLOW"], direction=MOTION["DIR"]["CENTER"]):
-        if direction != MOTION["DIR"]["CENTER"]:
-            self.TX_data_py2(direction)
-        self.TX_data_py2(MOTION["MODE"]["WALK"] + MOTION["WALK"]["START"] + speed)
+    def walk(self, walk_signal=MOTION["WALK"]["START"], speed=MOTION["SPEED"]["SLOW"]):
+        if walk_signal == MOTION["WALK"]["END"]:
+            self.TX_data_py2(MOTION["MODE"]["WALK"] + walk_signal)
+        self.TX_data_py2(MOTION["MODE"]["WALK"] + walk_signal + speed)
         pass
 
     def head(self, view=MOTION["VIEW"]["DOWN80"], direction=MOTION["DIR"]["CENTER"]):
@@ -106,7 +107,7 @@ class Motion:
 
     def turn(self, direct=MOTION["DIR"]["LEFT"], repeat=1):
         for _ in range(repeat):
-            self.TX_data_py2(direct)
+            self.TX_data_py2(direct + MOTION["MODE"]["TURN"])
         pass
 
     def grab(self):
