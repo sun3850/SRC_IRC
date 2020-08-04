@@ -73,6 +73,7 @@ class Robot:
             # 만약 추적되는 객체가 없으면 False 를 반환한다
             need_to_change = self.imageProcessor.meanShiftTracking_color(img_color, trackWindow, roi_hist, termination)
             cnt += 1
+            self.motion.walk()
             if need_to_change is False:
                 self.changeAngle()
 
@@ -115,4 +116,5 @@ if __name__ == "__main__":
     # p.start()
     t = Thread(target=cam.produce, args=(imageProcessor,)) # 카메라 센싱 쓰레드
     t.start()
+
 
