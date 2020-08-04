@@ -19,8 +19,8 @@ COLORS["BLUE"] = {
     "upper" : [[],[],[]]
 }
 COLORS["RED"] = {
-    "upper" : [[181,255,107],[181,255,107],[181,255,107]],
-    "lower" : [[125,163,32],[125,163,32],[125,163,32]]
+    "upper" : [[182,255,190],[182,255,190],[182,255,190]],
+    "lower" : [[102,163,68],[102,163,68],[102,163,68]]
 }
 COLORS["RED2"] = {
     "lower" : [[139,145,186],[139,145,186],[139,145,186]],
@@ -116,8 +116,9 @@ class ImageProcessor:
             if area > 100:
                 targets.append(Target(stats[idx], centroid))  #
         if targets:
-            targets.sort(key=lambda x: x.y)
+            targets.sort(key=lambda x: x.y+x.height)
             target = targets[0]
+                        
             return target
         else:
             return None
