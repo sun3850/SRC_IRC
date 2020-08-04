@@ -12,7 +12,7 @@ class Camera:
         
         W_View_size =  640  #320  #640
         #H_View_size = int(W_View_size / 1.777)
-        H_View_size = int(W_View_size / 1.333) # 카메라 생성
+        H_View_size = 480
         self.cap.set(3, W_View_size)
         self.cap.set(4, H_View_size)
         
