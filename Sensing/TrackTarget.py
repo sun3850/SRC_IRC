@@ -53,8 +53,6 @@ class TrackTarget():
         hsv = cv2.cvtColor(one_pixel, cv2.COLOR_BGR2HSV)
         hsv = hsv[0][0]
 
-        threshold = cv2.getTrackbarPos('threshold', 'img_result')
-
         # HSV 색공간에서 마우스 클릭으로 얻은 픽셀값과 유사한 필셀값의 범위를 정합니다.
         if hsv[0] < 10:
             lower_blue1 = np.array([hsv[0] - 10 + 180, 30, 30])
@@ -82,36 +80,7 @@ class TrackTarget():
         return hsv, lower_blue1, upper_blue1, lower_blue2, upper_blue2, lower_blue3, upper_blue3
 
 
-    def changeAngle(self):
-        # 목각도를 변경하기위해 로봇에게 통신을 한다음 다시 track을 시작한다
-        print("need to change Angle!")
-        self.motion.walk(walk_signal=MOTION["WALK"]["END"])  # 로봇의 전진을 끝내는거
-        head = ["DOWN80", "DOWN60", "DOWN45", "DOWN35", "DOWN30", "DOWN10"]   # index = i
-        head_LR = ["CENTER", "LEFT30", "LEFT45", "LEFT60", "RIGHT30", "RIGHT45", "RIGHT60"]  # index = j
-        i, j = 0, 0
-        flag = 0
-        while i < len(head):
-            #for j in range(len(head_LR)):
-                #print(head[i], head_LR[j])
-            self.motion.head(view=MOTION["MODE"][head[i]])
-            self.camShiftTracking_color()  # 다시 물체를 탐색한다
-            i += 1
 
-
-    def Rotate(self, src, degrees):  # 이미지 rotation 하기
-        if degrees == 90:
-            dst = cv2.transpose(src)
-            dst = cv2.flip(dst, 1)
-
-        elif degrees == 180:
-            dst = cv2.flip(src, -1)
-
-        elif degrees == 270:
-            dst = cv2.transpose(src)
-            dst = cv2.flip(dst, 0)
-        else:
-            pass
-        return dst
 
 ############## 색상을 토대로 객체들의 리스트를 설정하고 -> 파악된 객체중에서 가장 가까운 객체를 설정한다 ############################
     def selectObject(self, img_color=None):
@@ -155,169 +124,11 @@ class TrackTarget():
             #cv2.imshow('select_object', img_color)
         else: self.changeAngle()
         
-    def selectObject3(self, img_color=None):
-        self.centers = []
-        if img_color is None:
-            self.cap = cv2.VideoCapture('./img/7.mp4')  # 동영상 사용
-            ret, img_color = self.cap.read()
-        #원본 영상을 HSV 영상으로 변환합니다.
-        img_hsv = cv2.cvtColor(img_color, cv2.COLOR_BGR2HSV)
-
-        # 범위 값으로 HSV 이미지에서 마스크를 생성합니다.
-        img_mask1 = cv2.inRange(img_hsv, self.lower_blue1, self.upper_blue1)
-        img_mask2 = cv2.inRange(img_hsv, self.lower_blue2, self.upper_blue2)
-        img_mask3 = cv2.inRange(img_hsv, self.lower_blue3, self.upper_blue3)
-        img_mask = img_mask1 | img_mask2 | img_mask3  # 이진화된 이미지 get
-
-        # 잡음제거
-        kernel = np.ones((11, 11), np.uint8)
-        img_mask = cv2.morphologyEx(img_mask, cv2.MORPH_OPEN, kernel)
-        img_mask = cv2.morphologyEx(img_mask, cv2.MORPH_CLOSE, kernel)
-
-        # 등고선 따기
-        contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
-                                               cv2.CHAIN_APPROX_SIMPLE)
-
-
-        if len(contours) != 0:
-            for cnt in contours:
-                x, y, w, h = cv2.boundingRect(cnt)
-                area = cv2.contourArea(cnt)
-                if area > 1000:
-                    #cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
-                    # 무게중심
-                    self.Cx = x + w // 2
-                    self.Cy = y + h // 2
-                    # bcv2.line(img_color, (self.Cx, self.Cy), (self.Cx, self.Cy), (0, 0, 255), 10)
-                    # 같은 색상이라도 무게중심의 y값이 큰것일 수록 더 가까이 있음
-                    self.centers.append([x, y, w, h])
-            self.centers = sorted(self.centers, key=lambda x: x[1] + x[3] // 2, reverse=True)[0]
-            # 타겟인 영역만큼 그림그리기
-            col, row, width, height = self.centers[0], self.centers[1], self.centers[2], self.centers[3]
-            trackWindow = (col, row, width, height)  # 추적할 객체
-            roi = img_color[row:row + height, col:col + width]
-            roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-            roi_hist = cv2.calcHist([roi], [0], None, [180], [0, 180])
-            cv2.normalize(roi_hist, roi_hist, 0, 255, cv2.NORM_MINMAX)
-
-            termination = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 1)
-            return trackWindow, roi_hist, termination
-        else:
-            print("발견된 물체가 없습니다.")
-            self.changeAngle()
-        
-    # selectObject 를 이용하여 타깃하는 객체를 설정하고  -> camShiftTracking 으로 객체를 다시 추적한다
-    def camShiftTracking(self, col, row, width, height):  # 추적할 대상이 정해지면 그 좌표기준으로 사각형을 그려서 추적대상을 잡는다
-        # 타겟인 객체를 추적하기 위해 세팅하기 - 첫이미지 가져오기
-        ret, img_color = self.cap.read()
-        # 타겟인 영역만큼 그림그리기
-        cv2.rectangle(img_color, (col, row), (col + width, row + height), (0, 255, 0), 2)
-        trackWindow = (col, row, width, height)  # 추적할 객체
-        print(trackWindow)
-        roi = img_color[row:row + height, col:col + width]
-        roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-        roi_hist = cv2.calcHist([roi], [0], None, [180], [0, 180])
-        cv2.normalize(roi_hist, roi_hist, 0, 255, cv2.NORM_MINMAX)
-
-        termination = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 1)
-
-        cv2.imshow("chek_cam", img_color)
-
-        # 이제 객체를 camshift로 추적한다.
-        while True:
-            ret, img_color = self.cap.read()
-            flag = 0
-            #img_color = self.Rotate(img_color, 90)  # 90 or 180 or 270
-            if not ret:
-                break
-            if trackWindow is not None:
-                hsv = cv2.cvtColor(img_color, cv2.COLOR_BGR2HSV)
-                dst = cv2.calcBackProject([hsv], [0], roi_hist, [0, 180], 1)  # roi_hist 설정하기
-                ret, trackWindow = cv2.meanShift(dst, trackWindow, termination)
-                x, y, w, h = trackWindow
-                cv2.rectangle(img_color, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                # ret, trackWindow = cv2.CamShift(dst, trackWindow, termination)
-                # pts = cv2.boxPoints(ret)
-                # pts = np.int0(pts)
-                # cv2.polylines(img_color, [pts], True, (0, 255, 0), 2)
-                ########### 만약 무게중심이 화면 밖을 벗어나면 #################
-                # center = cv2.moments(ret)
-                # Cx = int(center['m10']/center['m00'])
-                # Cy = int(center['m01']/center['m00'])
-                Cx = x + w // 2
-                Cy = y + h // 2
-                cv2.line(img_color, (Cx, Cy), (Cx, Cy), (0, 0, 255), 10)
-
-                if Cx < 20 or Cx > img_color.shape[1] - 100 or Cy < 20 or Cy > img_color.shape[0] - 70:
-                    print("진입")
-                    flag = 1  # 새로운 객체를 찾으라는 명령을 내린다
-                    break
-
-            cv2.imshow('frame', img_color)
-            if cv2.waitKey(33) > 0: break
-
-        if flag == 1:
-            # 목각도를 회전한다음 물체검색 다시
-            print("물체검색을 다시 시작합니다.")
-            self.changeAngle()
-
-        self.cap.release()
-        cv2.destroyAllWindows()
-
 
 
 
      # selectObject 를 이용하여 타깃하는 객체를 설정하고  -> camShiftTracking 으로 객체를 다시 추적한다
-    def camShiftTracking_color(self):  # 추적할 대상이 정해지면 그 좌표기준으로 사각형을 그려서 추적대상을 잡는다
-        cnt = 0
-        # 이제 객체를 camshift로 추적한다.
-        ret, img_color = self.cap.read()
-        trackWindow, roi_hist, termination = self.selectObject3(img_color)
 
-        while True:
-            ret, img_color = self.cap.read()
-            flag = 0
-            
-            if not ret:
-                break
-            self.motion.walk()
-            ######################## target의 업데이트 ####################
-            trackWindow, roi_hist, termination = self.selectObject3(img_color)
-            if cnt == 20:   #페이지 20장 바뀌면 그때 update 
-                print("update!")
-                trackWindow, roi_hist, termination = self.selectObject3(img_color)
-                cnt = 0
-            #if trackWindow is not None:
-            hsv = cv2.cvtColor(img_color, cv2.COLOR_BGR2HSV)
-            dst = cv2.calcBackProject([hsv], [0], roi_hist, [0, 180], 1)  # roi_hist 설정하기
-            ret, trackWindow = cv2.meanShift(dst, trackWindow, termination)
-            x, y, w, h = trackWindow
-            cv2.rectangle(img_color, (x, y), (x+w, y+h), (0, 255, 0), 2)
-            ########### 만약 무게중심이 화면 밖을 벗어나면 #################
-            # center = cv2.moments(ret)
-            # Cx = int(center['m10']/center['m00'])
-            # Cy = int(center['m01']/center['m00'])
-            Cx = x + w // 2
-            Cy = y + h // 2
-            cv2.line(img_color, (Cx, Cy), (Cx, Cy), (0, 0, 255), 10)
-            cnt += 1
-            if Cx < 20 or Cx > img_color.shape[1] - 50 or Cy < 20 or Cy > img_color.shape[0] - 50:
-                print("진입")
-                flag = 1  # 새로운 객체를 찾으라는 명령을 내린다
-                break
-
-
-
-            cv2.imshow('camShiftTracking_color', img_color)
-            if cv2.waitKey(33) > 0: break
-
-        if flag == 1:
-            # 목각도를 회전한다음 물체검색 다시
-            print("물체검색을 다시 시작합니다.")
-            self.changeAngle()
-
-        self.cap.release()
-        cv2.destroyAllWindows()
 
 
 
@@ -386,41 +197,40 @@ class TrackTarget():
 
 
 
-    def trackObject_one(self):  # 색상으로 추적 -> 같은 색상 중에서  y좌표가 가장 작은 애만 추적  -> 하나만 추적하는것 
-        while (True):
-            ret, img_color = self.cap.read()
-            if not ret:
-                break
-            self.selectObject(img_color)  # 파란색을 띄는 물체의 사각형 꼭짓점을 받아온다 
-            
-            if len(self.centers) != 0:
-                x, y, w, h = self.centers[0][0], self.centers[0][1], self.centers[0][2], self.centers[0][3]
-                cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
-                motion.walk()
-                # 무게중심
-                self.Cx = x + w // 2
-                self.Cy = y + h // 2
-                cv2.line(img_color, (self.Cx, self.Cy), (self.Cx, self.Cy), (0, 0, 255), 10)
-                # 같은 색상이라도 무게중심의 y값이 작은것일 수록 더 가까이 있음
-                # 무게중심이 아래로 내려가서 시야에서 가려지기전에 가려질 듯하면-> 목각도를 내려서 타깃을 확인한다 : 주의 끊기면 안됨 물체추적 끝남
-                height, width = img_color.shape[:2]
-
-                if height - 40 <= self.Cy <= height:
-                    print("물체를 다시 겁색합니다")
-                    self.changeAngle()
-                    break
-
-
-            ##############################  Track Blue 끝!##############################################
-            # 마스크 이미지로 원본 이미지에서 범위값에 해당되는 영상 부분을 획득합니다.
-            cv2.imshow('img_color', img_color)
-           # cv2.imshow('img_result', img_result)  # 트랙바가 생성될 창
-
-            # ESC 키누르면 종료
-            if cv2.waitKey(1) & 0xFF == 27:
-                break
-
-        cv2.destroyAllWindows()
+    # def trackObject_one(self):  # 색상으로 추적 -> 같은 색상 중에서  y좌표가 가장 작은 애만 추적  -> 하나만 추적하는것
+    #     while (True):
+    #         ret, img_color = self.cap.read()
+    #         if not ret:
+    #             break
+    #         self.selectObject(img_color)  # 파란색을 띄는 물체의 사각형 꼭짓점을 받아온다
+    #
+    #         if len(self.centers) != 0:
+    #             x, y, w, h = self.centers[0][0], self.centers[0][1], self.centers[0][2], self.centers[0][3]
+    #             cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
+    #             # 무게중심
+    #             self.Cx = x + w // 2
+    #             self.Cy = y + h // 2
+    #             cv2.line(img_color, (self.Cx, self.Cy), (self.Cx, self.Cy), (0, 0, 255), 10)
+    #             # 같은 색상이라도 무게중심의 y값이 작은것일 수록 더 가까이 있음
+    #             # 무게중심이 아래로 내려가서 시야에서 가려지기전에 가려질 듯하면-> 목각도를 내려서 타깃을 확인한다 : 주의 끊기면 안됨 물체추적 끝남
+    #             height, width = img_color.shape[:2]
+    #
+    #             if height - 40 <= self.Cy <= height:
+    #                 print("물체를 다시 겁색합니다")
+    #                 self.changeAngle()
+    #                 break
+    #
+    #
+    #         ##############################  Track Blue 끝!##############################################
+    #         # 마스크 이미지로 원본 이미지에서 범위값에 해당되는 영상 부분을 획득합니다.
+    #         cv2.imshow('img_color', img_color)
+    #        # cv2.imshow('img_result', img_result)  # 트랙바가 생성될 창
+    #
+    #         # ESC 키누르면 종료
+    #         if cv2.waitKey(1) & 0xFF == 27:
+    #             break
+    #
+    #     cv2.destroyAllWindows()
 
 
     

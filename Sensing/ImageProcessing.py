@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from threading import Thread
 
+
 DONT_DEBUG = False
 DEBUG = True
 #COLORS HSV THRESHOLD RANGE
@@ -68,13 +69,12 @@ class ImageProcessor:
         kernel = np.ones(k, np.uint8)
         img_mask = cv2.morphologyEx(img_mask, cv2.MORPH_OPEN, kernel)
         img_mask = cv2.morphologyEx(img_mask, cv2.MORPH_CLOSE, kernel)
-        img_result = cv2.bitwise_and(img, img, mask=img_mask) # 해당 색상값만 남기기
+        # img_result = cv2.bitwise_and(img, img, mask=img_mask) # 해당 색상값만 남기기
 
         if(debug):
-            self.debug(img_result)
+            self.debug(img_mask)
 
-        return img_result
-
+        return img, img_mask
     def updateImage(self, src): # 카메라 쓰레드가 fresh 이미지를 계속해서 갱신해줌
         self.__src = src
 
@@ -122,6 +122,71 @@ class ImageProcessor:
             return target
         else:
             return None
+
+    def selectObject_mean(self):
+        centers = []
+        need_to_update = True
+        # 원본 영상을 HSV 영상으로 변환합니다.
+
+        img_color, img_mask = self.getBinImage("RED")
+
+        # 등고선 따기
+        contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
+                                               cv2.CHAIN_APPROX_SIMPLE)
+        for cnt in contours:
+            x, y, w, h = cv2.boundingRect(cnt)
+            area = cv2.contourArea(cnt)
+            if area > 1000:
+                # cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
+                # 무게중심
+                self.Cx = x + w // 2
+                self.Cy = y + h // 2
+                # bcv2.line(img_color, (self.Cx, self.Cy), (self.Cx, self.Cy), (0, 0, 255), 10)
+                # 같은 색상이라도 무게중심의 y값이 큰것일 수록 더 가까이 있음
+                centers.append([x, y, w, h])
+        centers = sorted(centers, key=lambda x: x[1] + x[3] // 2, reverse=True)[0]
+        # 타겟인 영역만큼 그림그리기
+        col, row, width, height = centers[0], centers[1], centers[2], centers[3]
+        trackWindow = (col, row, width, height)  # 추적할 객체
+        roi = img_color[row:row + height, col:col + width]
+        roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+        roi_hist = cv2.calcHist([roi], [0], None, [180], [0, 180])
+        cv2.normalize(roi_hist, roi_hist, 0, 255, cv2.NORM_MINMAX)
+        termination = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 1)
+        return img_color, trackWindow, roi_hist, termination
+
+    def meanShiftTracking_color(self, fps=20, debug=False):  # 추적할 대상이 정해지면 그 좌표기준으로 사각형을 그려서 추적대상을 잡는다
+        # cnt = 0
+        need_to_update = True
+        # 이제 객체를 camshift로 추적한다.
+        ######################## target의 업데이트 ####################
+        img_color, trackWindow, roi_hist, termination = self.selectObject_mean()
+        if trackWindow is None:
+            need_to_update = False
+            # if cnt == fps:   #페이지 20장 바뀌면 그때 update
+        #     print("update!")
+        #     img_color, trackWindow, roi_hist, termination = self.selectObject_mean()
+        #     cnt = 0 # 컨트롤러에서 이 함수 호출할때 while문에서 카운트
+
+        # if trackWindow is not None:
+        hsv = cv2.cvtColor(img_color, cv2.COLOR_BGR2HSV)
+        dst = cv2.calcBackProject([hsv], [0], roi_hist, [0, 180], 1)  # roi_hist 설정하기
+        ret, trackWindow = cv2.meanShift(dst, trackWindow, termination)
+        x, y, w, h = trackWindow
+        Cx = x + w // 2
+        Cy = y + h // 2
+
+        if (debug):
+            result = img_color.copy()
+            cv2.rectangle(result, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv2.line(result, (Cx, Cy), (Cx, Cy), (0, 0, 255), 10)
+            self.debug(result)
+
+        if Cx < 20 or Cx > img_color.shape[1] - 50 or Cy < 20 or Cy > img_color.shape[0] - 50:
+            print("진입")
+            need_to_update = False  # 새로운 객체를 찾으라는 명령을 내린다
+
+        return need_to_update
 
 
 

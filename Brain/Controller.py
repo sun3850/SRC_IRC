@@ -48,13 +48,25 @@ class Robot:
             if idx == len(VIEW):
                 return
 
+    def changeAngle(self):
+        # 목각도를 변경하기위해 로봇에게 통신을 한다음 다시 track을 시작한다
+        print("need to change Angle!")
+        self.motion.walk(walk_signal=MOTION["WALK"]["END"])  # 로봇의 전진을 끝내는거
+        head = ["DOWN80", "DOWN60", "DOWN45", "DOWN35", "DOWN30", "DOWN10"]   # index = i
+        head_LR = ["CENTER", "LEFT30", "LEFT45", "LEFT60", "RIGHT30", "RIGHT45", "RIGHT60"]  # index = j
+        i, j = 0, 0
+        flag = 0
+        while i < len(head):
+            #for j in range(len(head_LR)):
+                #print(head[i], head_LR[j])
+            self.motion.head(view=MOTION["MODE"][head[i]])
+            self.imageProcessor.camShiftTracking_color()  # 다시 물체를 탐색한다
+            i += 1
+
+
 
 
     # find 찾는거 trace 쫓는거
-
-
-
-
     ## 라인트레이싱 관련 판단 함수
     # def findYellowLine(self):
     #     while not self.imageProcessor.isYellowLine():
@@ -65,7 +77,6 @@ class Robot:
     # def traceYellowLine(self): pass
     # def walkingThroughYellowLine(self): pass
 
-
     # ** 임소경 대비 코드들 **
     # ## 코너부분 관련 판단 함수
     # def isCorner(self): pass # 코너점인지 확인
@@ -73,7 +84,7 @@ class Robot:
     # def isForkedRoad(self): pass # 갈림길인지 확인
     # def isFinished(self): pass
     # def deciseRegion(self): pass # 감염지역인지, 클린지역인지 판단
-    #
+
     # ## 시민 옮기기
     # def detectCivil(self): pass
     # def traceCivil(self): pass
