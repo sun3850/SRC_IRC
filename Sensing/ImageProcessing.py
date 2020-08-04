@@ -53,7 +53,6 @@ class Target():
 class ImageProcessor:
     def __init__(self, height, width):
         self.__src = np.zeros((height, width, 3), np.uint8)
-        self.targets = []
 
     def getBinImage(self, color="RED", debug=False): # 인자로 넘겨 받은 색상만 남기고 리턴
         img = self.getImage()
@@ -88,6 +87,7 @@ class ImageProcessor:
 
     def findTarget(self, color="RED", debug = False):
         # 범위 값으로 HSV 이미지에서 마스크를 생성합니다.
+        targets = []
         img = self.getImage()
         img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         lower1, lower2, lower3 = COLORS[color]["lower"]
@@ -114,10 +114,10 @@ class ImageProcessor:
                 continue
             _, _, _, _, area = stats[idx]
             if area > 100:
-                self.targets.append(Target(stats[idx], centroid))  #
-        if self.targets:
-            self.targets.sort(key=lambda x: x.y)
-            target = self.targets[0]
+                targets.append(Target(stats[idx], centroid))  #
+        if targets:
+            targets.sort(key=lambda x: x.y)
+            target = targets[0]
             return target
         else:
             return None
