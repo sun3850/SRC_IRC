@@ -93,6 +93,14 @@ class Motion:
         self.TX_data_py2(MOTION["SIGNAL"]["INIT"])
         while not self.getRx():
             print(self.getRx())
+        self.lock = False
+        time.sleep(1)
+        
+        self.TX_data_py2(MOTION["DIR"]["CENTER"])
+        while not self.getRx():
+            print(self.getRx())
+        self.lock = False
+        time.sleep(1)
         pass
 
     def walk(self, walk_signal=MOTION["WALK"]["START"], speed=MOTION["SPEED"]["SLOW"], repeat=5):
@@ -102,16 +110,23 @@ class Motion:
             self.TX_data_py2(MOTION["MODE"]["WALK"] + walk_signal + speed)
         while not self.getRx():
             print(self.getRx())
+        self.lock = False
+        time.sleep(1)
         pass
 
     def head(self, view=MOTION["VIEW"]["DOWN80"], direction=MOTION["DIR"]["CENTER"]):
         # print(type(view))
-        self.TX_data_py2(direction)
+        self.TX_data_py2(MOTION["MODE"]["VIEW"] + direction)
         while not self.getRx():
             print(self.getRx())
+        self.lock = False
+        time.sleep(1)   
+        
         self.TX_data_py2(MOTION["MODE"]["VIEW"] + view)
         while not self.getRx():
             print(self.getRx())
+        self.lock = False
+        time.sleep(1)
         pass
         
     def move(self, direct=MOTION["DIR"]["LEFT"], repeat=1):
@@ -119,6 +134,8 @@ class Motion:
             self.TX_data_py2(MOTION["MODE"]["MOVE"] + direct)
         while not self.getRx():
             print(self.getRx())
+        self.lock = True
+        time.sleep(1)
         pass
 
     def turn(self, direct=MOTION["DIR"]["LEFT"], repeat=1):
@@ -126,13 +143,15 @@ class Motion:
             self.TX_data_py2(direct + MOTION["MODE"]["TURN"])
         while not self.getRx():
             print(self.getRx())
+        self.lock = True
+        time.sleep(1)        
         pass
 
     def grab(self):
         self.TX_data_py2(MOTION["GRAB"])
         while not self.getRx():
             print(self.getRx())
- 
+        self.lock = True
         pass
 
 
@@ -142,10 +161,10 @@ class Motion:
 if __name__ == '__main__':
     temp = Motion()
     temp.init()
-    time.sleep(1)
-    i = 5
+    i = 1
     while i > 0:
         print(i)
         temp.walk()
         i -= 1
-        time.sleep(1)
+    temp.head(view=MOTION["VIEW"]["DOWN60"], direction=MOTION["DIR"]["LEFT45"])
+    temp.move()
