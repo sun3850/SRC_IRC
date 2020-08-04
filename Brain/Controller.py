@@ -55,13 +55,26 @@ class Robot:
         head = ["DOWN80", "DOWN60", "DOWN45", "DOWN35", "DOWN30", "DOWN10"]   # index = i
         head_LR = ["CENTER", "LEFT30", "LEFT45", "LEFT60", "RIGHT30", "RIGHT45", "RIGHT60"]  # index = j
         i, j = 0, 0
-        flag = 0
         while i < len(head):
             #for j in range(len(head_LR)):
                 #print(head[i], head_LR[j])
             self.motion.head(view=MOTION["MODE"][head[i]])
-            self.imageProcessor.camShiftTracking_color()  # 다시 물체를 탐색한다
+            img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean()
+            self.imageProcessor.meanShiftTracking_color(img_color, trackWindow, roi_hist, termination)  # 다시 물체를 탐색한다
             i += 1
+
+    def mean_tracking(self):
+        cnt = 0
+        img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean()
+        while True:
+            if cnt == 20:
+                img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean()
+
+            # 만약 추적되는 객체가 없으면 False 를 반환한다
+            need_to_change = self.imageProcessor.meanShiftTracking_color(img_color, trackWindow, roi_hist, termination)
+            cnt += 1
+            if need_to_change is False:
+                self.changeAngle()
 
 
 
