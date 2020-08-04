@@ -50,7 +50,6 @@ class Target():
         return (bx - self.centerX, by - self.centerY)
 
 
-
 class ImageProcessor:
     def __init__(self, height, width):
         self.__src = np.zeros((height, width, 3), np.uint8)
@@ -85,22 +84,9 @@ class ImageProcessor:
     def getImage(self): # 이미지를 필요로 할때
         return self.__src.copy()
 
-    def findTarget(self, color="RED", debug = False):
-        # 범위 값으로 HSV 이미지에서 마스크를 생성합니다.
-        targets = []
-        img = self.getImage()
-        img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        lower1, lower2, lower3 = COLORS[color]["lower"]
-        upper1, upper2, upper3 = COLORS[color]["upper"]
-        img_mask1 = cv2.inRange(img_hsv, np.array(lower1), np.array(upper1))
-        img_mask2 = cv2.inRange(img_hsv, np.array(lower2), np.array(upper2))
-        img_mask3 = cv2.inRange(img_hsv, np.array(lower3), np.array(upper3))
-        temp = cv2.bitwise_or(img_mask1, img_mask2)
-        img_mask = cv2.bitwise_or(img_mask3, temp)
-        k = (11, 11)
-        kernel = np.ones(k, np.uint8)
-        img_mask = cv2.morphologyEx(img_mask, cv2.MORPH_OPEN, kernel)
-        img_mask = cv2.morphologyEx(img_mask, cv2.MORPH_CLOSE, kernel)
+    def detectTarget(self, color="RED", debug = False):
+        targets = [] # 인식한 타깃들을 감지
+        img, img_mask = self.getBinImage(color=color)
         img_result = cv2.bitwise_and(img, img, mask=img_mask)  # 해당 색상값만 남기기
         if(debug):
             self.debug(img_result)
@@ -115,13 +101,14 @@ class ImageProcessor:
             _, _, _, _, area = stats[idx]
             if area > 100:
                 targets.append(Target(stats[idx], centroid))  #
-        if targets:
-            targets.sort(key=lambda x: x.y+x.height)
-            target = targets[0]
+        if targets: # 타깃이 인식 됐다면 제일 가까운놈 리턴
+            targets.sort(key=lambda x: x.y+x.height, reverse=True) # 인식된 애들중 가까운 놈 기준으로 정렬
+            target = targets[0] # 제일 가까운 놈만 남김
                         
             return target
-        else:
+        else:# 인식된 놈이 없다면 None 리턴
             return None
+
 
     def selectObject_mean(self):
         centers = []
@@ -190,5 +177,5 @@ if __name__ == "__main__":
     cam_t.start()  # 카메라 프레임 공급 쓰레드 동작
 
     while(True):
-        i = imageProcessor.getBinImage(color="RED1", debug=DEBUG)
+        i = imageProcessor.getBinImage(color="RED", debug=DEBUG)
     pass

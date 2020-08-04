@@ -26,9 +26,8 @@ class Robot:
         self.motion.init()
         while(True):
             print("here1")
-            target = self.imageProcessor.findTarget(color="RED", debug=True)
-            print("here2")
-            if not target :
+            target = self.imageProcessor.detectTarget(color="RED", debug=True)
+            if target is None: # 만약에 객체가 없거나 이탈하면, 다시 객체를 찾아야한다.
                 continue
             (dx, dy) = target.getDistance(baseline=baseline)
             print("distance gap . dx : {} , dy : {}".format(dx, dy))
@@ -47,6 +46,12 @@ class Robot:
                 print("head down")
             if idx == len(VIEW):
                 return
+
+    def findTarget(self): # 타깃이 발견될때까지 대가리 상하 좌우 & 몸 틀기 시전
+        VIEW = ["DOWN60", "DOWN45", "DOWN35", "DOWN30", "DOWN10"]
+        HEAD = ["LEFT45", "RIGHT45", "CENTER"]
+
+
 
     def changeAngle(self):
         # 목각도를 변경하기위해 로봇에게 통신을 한다음 다시 track을 시작한다
@@ -77,36 +82,6 @@ class Robot:
                 self.changeAngle()
 
 
-
-
-    # find 찾는거 trace 쫓는거
-    ## 라인트레이싱 관련 판단 함수
-    # def findYellowLine(self):
-    #     while not self.imageProcessor.isYellowLine():
-    #         self.motion.head
-    #         time.sleep(0.3)
-    #     pass
-    # def isCorner(self): pass  # 코너점인지 확인
-    # def traceYellowLine(self): pass
-    # def walkingThroughYellowLine(self): pass
-
-    # ** 임소경 대비 코드들 **
-    # ## 코너부분 관련 판단 함수
-    # def isCorner(self): pass # 코너점인지 확인
-    # def detectRoom(self): pass #
-    # def isForkedRoad(self): pass # 갈림길인지 확인
-    # def isFinished(self): pass
-    # def deciseRegion(self): pass # 감염지역인지, 클린지역인지 판단
-
-    # ## 시민 옮기기
-    # def detectCivil(self): pass
-    # def traceCivil(self): pass
-    # def grabCivil(self): pass
-    # def move2Region(self): pass
-    # def putCivil(self): pass
-    #
-    # ## 확진지역에서 옮기기 관련 함수
-    # def move2Clean(self): pass
 
 if __name__ == "__main__":
     cam = Camera(0.1)
