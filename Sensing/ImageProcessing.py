@@ -186,10 +186,6 @@ class ImageProcessor:
 
 
 
-    def setting_middle(): # 중앙으로 중심을 맞춘다 
-        pass
-
-
 
 
 if __name__ == "__main__":
