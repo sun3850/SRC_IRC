@@ -168,10 +168,17 @@ class Robot:
             try:
                 img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean()  # 물체가 있으면 밑에 수행하고 없으면 except를 수행한다
                 # 타깃이 확인된 각도를 리스트에 집어넣는다 -> 이값을 이용하여 색깔 인덱스를 기록해야됨
-                re.findall("\d+", head_LR[cnt])
-                point_lst.append(head_LR[cnt])
+                rr = re.findall("\d+", head_LR[cnt])
+                point_lst.append((rr, head_LR[cnt]))
                 # [(방향, 각도)] 리스트안에 튜플로 저장해서 각도가 작은것으로 다시 정렬을 한다
-                sorted()
+                sorted_head_LR = sorted(head_LR, key=lambda x : x[1])
+                target = sorted_head_LR[0]
+                self.motion.head(target[0])
+                self.motion.walk()  # 앞으로 한번만 이동
+                self.motion.turn(direct=MOTION["DIR"]["RIGHT"])   # 몸돌리기
+
+
+
 
             except:
                 pass
