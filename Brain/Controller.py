@@ -19,6 +19,11 @@ class Robot:
         self.cam_t = Thread(target=self.cam.produce, args=(self.imageProcessor,)) #카메라 센싱 쓰레드
         self.cam_t.start() # 카메라 프레임 공급 쓰레드 동작
         self.motion = Motion()
+        self.motion.init()
+        self.j = 0
+        self.i = 0
+        self.str = ""
+
 
     def traceTarget(self):
         VIEW = ["DOWN60", "DOWN45", "DOWN35", "DOWN30", "DOWN10"]
@@ -36,10 +41,10 @@ class Robot:
             if (-30 < dx < 30 and dy > 0 ):
                 print("walk")
                 self.motion.walk()
-                
+
             elif ( dx < -40 and dy > 0) : # 오른쪽
                 self.motion.move(direct=MOTION["DIR"]["RIGHT"])
-                
+
             elif ( dx > 40 and dy > 0) : # 왼쪽
                 self.motion.move(direct=MOTION["DIR"]["LEFT"])
             elif ( dy < 0 ) :
@@ -58,36 +63,88 @@ class Robot:
 
 
 
-
-
-    def changeAngle(self):
+    def changeAngle(self, i, j):
         # 목각도를 변경하기위해 로봇에게 통신을 한다음 다시 track을 시작한다
-        print("need to change Angle!")
-        self.motion.walk(walk_signal=MOTION["WALK"]["END"])  # 로봇의 전진을 끝내는거
-        head = ["DOWN80", "DOWN60", "DOWN45", "DOWN35", "DOWN30", "DOWN10"]   # index = i
-        head_LR = ["CENTER", "LEFT30", "LEFT45", "LEFT60", "RIGHT30", "RIGHT45", "RIGHT60"]  # index = j
-        i, j = 0, 0
-        while i < len(head):
-            #for j in range(len(head_LR)):
-                #print(head[i], head_LR[j])
-            self.motion.head(view=MOTION["MODE"][head[i]])
-            img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean()
-            self.imageProcessor.meanShiftTracking_color(img_color, trackWindow, roi_hist, termination)  # 다시 물체를 탐색한다
-            i += 1
+        #self.motion.walk(walk_signal=MOTION["WALK"]["END"])  # 로봇의 전진을 끝내는거
+        head = ["", "DOWN80", "DOWN60", "DOWN45", "DOWN35", "DOWN30", "DOWN10"]  # index = i
+        head_LR = ["", "CENTER", "LEFT30", "LEFT45", "LEFT60", "RIGHT30", "RIGHT45", "RIGHT60"]  # index = j
+        self.motion.head(view=MOTION["MODE"][head[i]], direction=MOTION["DIR"][head_LR[j]])
+        self.str = head_LR[j]
+        print(head[i], head_LR[j])
+        if self.j == len(head_LR)-1:
+            self.j = 0
+            self.i += 1
+        try:
+            self.mean_tracking()
+        except:
+            print("hello")
+            self.changeAngle(self.i, self.j)
+
+
+
 
     def mean_tracking(self):
         cnt = 0
+        flag = 0
         img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean()
+        # 몸도 움직이기 코드
+        if "LEFT" in self.str:
+            self.motion.init()
+            self.motion.turn()
+        else:
+            self.motion.init()
+            self.motion.turn(direct=MOTION["DIR"]["RIGHT"])
         while True:
-            if cnt == 20:
-                img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean()
+            try:
 
-            # 만약 추적되는 객체가 없으면 False 를 반환한다
-            need_to_change = self.imageProcessor.meanShiftTracking_color(img_color, trackWindow, roi_hist, termination)
+                if cnt % 10 == 10:  # 추적대상 update 하기
+                    img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean()
+                # 만약 추적되는 객체가 없으면 False 를 반환한다
+                print("8888")
+                print("8888")
+                need_to_change = self.imageProcessor.meanShiftTracking_color(img_color, trackWindow, roi_hist, termination)
+                cnt += 1
+                # 물체를 찾은적이 있으면 움직인다 / 물체를 찾은 적없이 처음 시작하면 무작정 walk 하지 않음
+                if cnt == 1:
+                    flag = 1
+                print("8888")
+                print("8888")
+                self.motion.walk()
+            except:
+                if flag == 1:  # 무작정 처음부터 움직이는것 방지하기
+                    self.motion.walk()
+                    self.motion.walk()
+                    self.motion.walk()
+                self.j += 1
+                self.changeAngle(self.i, self.j)
+
+
+    def check_color_distance(self):
+
+        # 물체를 찾을 수 있는 각도로 머리를 든다
+        head = ["", "DOWN80"]
+        self.motion.head(view=MOTION["MODE"][head[i]])
+
+        # 목을 좌우로 움직인다
+        head_LR = ["", "CENTER", "LEFT30", "LEFT45", "LEFT60", "RIGHT30", "RIGHT45", "RIGHT60"]  # index = j
+        cnt = 1
+        point_lst = []  # 색깔이 있는 곳
+        while cnt != len(head_LR):
+            # 물체를 찾는다
             cnt += 1
-            self.motion.walk()
-            if need_to_change is False:
-                self.changeAngle()
+            try:
+                img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean()  # 물체가 있으면 밑에 수행하고 없으면 except를 수행한다
+                # 타깃이 확인된 각도를 리스트에 집어넣는다 -> 이값을 이용하여 색깔 인덱스를 기록해야됨
+                re.findall("\d+", head_LR[cnt])
+                point_lst.append(head_LR[cnt])
+                # [(방향, 각도)] 리스트안에 튜플로 저장해서 각도가 작은것으로 다시 정렬을 한다
+                sorted()
+
+            except:
+                pass
+
+
+
 
 
 

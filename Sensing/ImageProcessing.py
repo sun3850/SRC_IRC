@@ -27,6 +27,10 @@ COLORS["RED2"] = {
     "lower" : [[139,145,186],[139,145,186],[139,145,186]],
     "upper" : [[55,94,149],[55,94,149],[55,94,149]]
 }
+COLORS["RED3"] = {
+    "upper" : [[180,255,255],[0,255,255],[20,255,255]],
+    "lower" : [[160,30,30],[68,30,30],[68,30,30]]
+}
 COLORS[""] = {
     "lower" : [[],[],[]],
     "upper" : [[],[],[]]
@@ -48,6 +52,7 @@ class Target():
     def getDistance(self, baseline):
         (bx, by) = baseline
         return (bx - self.centerX, by - self.centerY)
+
 
 
 class ImageProcessor:
@@ -115,7 +120,6 @@ class ImageProcessor:
                 self.debug(img)
             return None
 
-
     def selectObject_mean(self):
         centers = []
         img_color, img_mask = self.getBinImage("RED")
@@ -154,10 +158,11 @@ class ImageProcessor:
             return img_color, trackWindow, roi_hist, termination
         else:
             return None, None, None, None
+        
+                
 
 
-
-    def meanShiftTracking_color(self, img_color, trackWindow, roi_hist, termination,  debug=False):  # 추적할 대상이 정해지면 그 좌표기준으로 사각형을 그려서 추적대상을 잡는다
+    def meanShiftTracking_color(self, img_color, trackWindow, roi_hist, termination,  debug=True):  # 추적할 대상이 정해지면 그 좌표기준으로 사각형을 그려서 추적대상을 잡는다
         need_to_update = True
         ######################## target의 업데이트 ####################
         img_color, trackWindow, roi_hist, termination = self.selectObject_mean()
@@ -203,3 +208,4 @@ if __name__ == "__main__":
     while(True):
         i = imageProcessor.getBinImage(color="RED1", debug=DEBUG)
     pass
+
