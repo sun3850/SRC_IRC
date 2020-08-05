@@ -74,7 +74,6 @@ class ImageProcessor:
             self.debug(img_mask)
 
         return img, img_mask
-
     def updateImage(self, src): # 카메라 쓰레드가 fresh 이미지를 계속해서 갱신해줌
         self.__src = src
 
@@ -88,7 +87,9 @@ class ImageProcessor:
     def detectTarget(self, color="RED", debug = False):
         targets = [] # 인식한 타깃들을 감지
         img, img_mask = self.getBinImage(color=color)
-        # img_result = cv2.bitwise_and(img, img, mask=img_mask)  # 해당 색상값만 남기기
+        img_result = cv2.bitwise_and(img, img, mask=img_mask)  # 해당 색상값만 남기기
+        if(debug):
+            self.debug(img_result)
         # 라벨링
         _, _, stats, centroids = cv2.connectedComponentsWithStats(img_mask, connectivity=8)
         for idx, centroid in enumerate(centroids):  # enumerate 함수는 순서가 있는 자료형을 받아 인덱스와 데이터를 반환한다.
@@ -115,18 +116,22 @@ class ImageProcessor:
             return None
 
 
-
     def selectObject_mean(self):
         centers = []
         img_color, img_mask = self.getBinImage("RED")
+        img_show = self.getImage()
+        img_show = self.getImage()
+        img_show = self.getImage()
 
+        self.debug(img_show)
         # 등고선 따기
         contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
                                                cv2.CHAIN_APPROX_SIMPLE)
+
         for cnt in contours:
             x, y, w, h = cv2.boundingRect(cnt)
             area = cv2.contourArea(cnt)
-            if area > 1000:
+            if area > 10:
                 # cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
                 # 무게중심
                 self.Cx = x + w // 2
@@ -134,16 +139,23 @@ class ImageProcessor:
                 # bcv2.line(img_color, (self.Cx, self.Cy), (self.Cx, self.Cy), (0, 0, 255), 10)
                 # 같은 색상이라도 무게중심의 y값이 큰것일 수록 더 가까이 있음
                 centers.append([x, y, w, h])
-        centers = sorted(centers, key=lambda x: x[1] + x[3] // 2, reverse=True)[0]
-        # 타겟인 영역만큼 그림그리기
-        col, row, width, height = centers[0], centers[1], centers[2], centers[3]
-        trackWindow = (col, row, width, height)  # 추적할 객체
-        roi = img_color[row:row + height, col:col + width]
-        roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-        roi_hist = cv2.calcHist([roi], [0], None, [180], [0, 180])
-        cv2.normalize(roi_hist, roi_hist, 0, 255, cv2.NORM_MINMAX)
-        termination = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 1)
-        return img_color, trackWindow, roi_hist, termination
+        print("center1: ", centers)
+        if centers:
+            centers = sorted(centers, key=lambda x: x[1] + x[3] // 2, reverse=True)[0]
+            # 타겟인 영역만큼 그림그리기
+            col, row, width, height = centers[0], centers[1], centers[2], centers[3]
+            trackWindow = (col, row, width, height)  # 추적할 객체
+            roi = img_color[row:row + height, col:col + width]
+            roi = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
+            roi_hist = cv2.calcHist([roi], [0], None, [180], [0, 180])
+            cv2.normalize(roi_hist, roi_hist, 0, 255, cv2.NORM_MINMAX)
+            termination = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 1)
+            print("center2: ", centers)
+            return img_color, trackWindow, roi_hist, termination
+        else:
+            return None, None, None, None
+
+
 
     def meanShiftTracking_color(self, img_color, trackWindow, roi_hist, termination,  debug=False):  # 추적할 대상이 정해지면 그 좌표기준으로 사각형을 그려서 추적대상을 잡는다
         need_to_update = True
@@ -153,13 +165,13 @@ class ImageProcessor:
         if trackWindow is None:
             need_to_update = False
 
-        # if trackWindow is not None:
-        hsv = cv2.cvtColor(img_color, cv2.COLOR_BGR2HSV)
-        dst = cv2.calcBackProject([hsv], [0], roi_hist, [0, 180], 1)  # roi_hist 설정하기
-        ret, trackWindow = cv2.meanShift(dst, trackWindow, termination)
-        x, y, w, h = trackWindow
-        Cx = x + w // 2
-        Cy = y + h // 2
+        if trackWindow is not None:
+            hsv = cv2.cvtColor(img_color, cv2.COLOR_BGR2HSV)
+            dst = cv2.calcBackProject([hsv], [0], roi_hist, [0, 180], 1)  # roi_hist 설정하기
+            ret, trackWindow = cv2.meanShift(dst, trackWindow, termination)
+            x, y, w, h = trackWindow
+            Cx = x + w // 2
+            Cy = y + h // 2
 
         if (debug):
             result = img_color.copy()
@@ -167,11 +179,17 @@ class ImageProcessor:
             cv2.line(result, (Cx, Cy), (Cx, Cy), (0, 0, 255), 10)
             self.debug(result)
 
-        if Cx < 20 or Cx > img_color.shape[1] - 50 or Cy < 20 or Cy > img_color.shape[0] - 50:
+        if Cx < 10 or Cx > img_color.shape[1] - 10 or Cy < 10 or Cy > img_color.shape[0] - 10:
             print("객체가 벗어났습니다.")
             need_to_update = False  # 새로운 객체를 찾으라는 명령을 내린다
 
         return need_to_update
+
+
+
+    def setting_middle(): # 중앙으로 중심을 맞춘다
+        pass
+
 
 
 
@@ -183,5 +201,5 @@ if __name__ == "__main__":
     cam_t.start()  # 카메라 프레임 공급 쓰레드 동작
 
     while(True):
-        i = imageProcessor.getBinImage(color="RED", debug=DEBUG)
+        i = imageProcessor.getBinImage(color="RED1", debug=DEBUG)
     pass
