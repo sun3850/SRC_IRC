@@ -74,6 +74,7 @@ class ImageProcessor:
             self.debug(img_mask)
 
         return img, img_mask
+
     def updateImage(self, src): # 카메라 쓰레드가 fresh 이미지를 계속해서 갱신해줌
         self.__src = src
 
@@ -87,9 +88,7 @@ class ImageProcessor:
     def detectTarget(self, color="RED", debug = False):
         targets = [] # 인식한 타깃들을 감지
         img, img_mask = self.getBinImage(color=color)
-        img_result = cv2.bitwise_and(img, img, mask=img_mask)  # 해당 색상값만 남기기
-        if(debug):
-            self.debug(img_result)
+        # img_result = cv2.bitwise_and(img, img, mask=img_mask)  # 해당 색상값만 남기기
         # 라벨링
         _, _, stats, centroids = cv2.connectedComponentsWithStats(img_mask, connectivity=8)
         for idx, centroid in enumerate(centroids):  # enumerate 함수는 순서가 있는 자료형을 받아 인덱스와 데이터를 반환한다.
@@ -104,10 +103,17 @@ class ImageProcessor:
         if targets: # 타깃이 인식 됐다면 제일 가까운놈 리턴
             targets.sort(key=lambda x: x.y+x.height, reverse=True) # 인식된 애들중 가까운 놈 기준으로 정렬
             target = targets[0] # 제일 가까운 놈만 남김
-                        
+            if(debug):
+                cv2.circle(img, (target.centerX, target.centerY), 10, (0, 255, 0), 10)
+                cv2.rectangle(img, (target.x, target.y), (target.x + target.width, target.y + target.height), (0, 255, 0))
+                self.debug(img)
             return target
         else:# 인식된 놈이 없다면 None 리턴
+            if(debug):
+                cv2.putText(img, "** NO TARGET **", (320, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255))
+                self.debug(img)
             return None
+
 
 
     def selectObject_mean(self):

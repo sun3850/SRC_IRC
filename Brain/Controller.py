@@ -25,9 +25,11 @@ class Robot:
         idx = 0
         self.motion.init()
         while(True):
+            self.findTarget()
             print("here1")
             target = self.imageProcessor.detectTarget(color="RED", debug=True)
             if target is None: # 만약에 객체가 없거나 이탈하면, 다시 객체를 찾아야한다.
+                self.findTarget()
                 continue
             (dx, dy) = target.getDistance(baseline=baseline)
             print("distance gap . dx : {} , dy : {}".format(dx, dy))
@@ -50,6 +52,11 @@ class Robot:
     def findTarget(self): # 타깃이 발견될때까지 대가리 상하 좌우 & 몸 틀기 시전
         VIEW = ["DOWN60", "DOWN45", "DOWN35", "DOWN30", "DOWN10"]
         HEAD = ["LEFT45", "RIGHT45", "CENTER"]
+        for i in VIEW:
+            self.motion.head(view=MOTION["MODE"][i])
+
+
+
 
 
 
