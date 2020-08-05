@@ -155,13 +155,16 @@ class Robot:
     def check_color_distance(self):
 
         # 물체를 찾을 수 있는 각도로 머리를 든다
-        head = ["", "DOWN80"]
-        self.motion.head(view=MOTION["MODE"][head[i]])
+        self.motion.head(view=MOTION["MODE"]["DOWN80"])
 
         # 목을 좌우로 움직인다
         head_LR = ["", "CENTER", "LEFT30", "LEFT45", "LEFT60", "RIGHT30", "RIGHT45", "RIGHT60"]  # index = j
+        
+        head_LR = ["", "CENTER", "LEFT30", "RIGHT30", "LEFT45", "RIGHT45", "LEFT60", "RIGHT60"]  # index = j
+        
+
         cnt = 1
-        point_lst = []  # 색깔이 있는 곳
+        point_lst = []  # target 색깔이 있는 곳
         while cnt != len(head_LR):
             # 물체를 찾는다
             cnt += 1
