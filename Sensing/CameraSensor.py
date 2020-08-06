@@ -26,7 +26,7 @@ class Camera:
             if ret is not True:
                 continue
             consumer.updateImage(frame)
-            time.sleep(0.1)
+            time.sleep(self.fps)
             # 업데이트 속도 초당 몇 프레임
             
 
