@@ -15,7 +15,7 @@ footline = (fx, fy) = (320, 420)
 
 class Robot:
     def __init__(self):
-        self.cam = Camera(0.1)
+        self.cam = Camera(fps = 0.1)
         self.imageProcessor = ImageProcessor(self.cam.width, self.cam.height)
         self.cam_t = Thread(target=self.cam.produce, args=(self.imageProcessor,)) #카메라 센싱 쓰레드
         self.cam_t.start() # 카메라 프레임 공급 쓰레드 동작
@@ -74,11 +74,11 @@ class Robot:
             else: # 해당 방향에 타깃이 있다면 , 방향으로 몸을 틀고
                 if "LEFT" in VIEW: # 왼쪽에서 발견했으면 왼쪽으로 틀고
                     self.motion.turn(direct=MOTION["DIR"]["LEFT"])
-                    self.motion.init()
+                    # self.motion.init()
                     print("find left Target, turn left")
                 elif "RIGHT" in VIEW: # 오른쪽에서 발견했으면 오른쪽으로 틀고
                     self.motion.turn(direct=MOTION["DIR"]["RIGHT"])
-                    self.motion.init()
+                    # self.motion.init()
                     print("find right Target, turn right")
                 else:
                     print("find center Target, not turn")
@@ -180,9 +180,6 @@ class Robot:
                 self.motion.walk()  # 앞으로 한번만 이동
                 self.motion.turn(direct=MOTION["DIR"]["RIGHT"])   # 몸돌리기
 
-
-
-
             except:
                 pass
 
@@ -192,11 +189,6 @@ class Robot:
 
 
 if __name__ == "__main__":
-    cam = Camera(0.1)
-    imageProcessor = ImageProcessor(cam.width, cam.height)
-    # p = Process(target=cam.produce, args=[imageProcessor]) # 카메라 센싱 데이터 한 프로세스 내에서 자원의 공유는 가능하다. 그러나 서로 다른 프로세스에서 자원의 공유는 불가능하다....
-    # p.start()
-    t = Thread(target=cam.produce, args=(imageProcessor,)) # 카메라 센싱 쓰레드
-    t.start()
-
-
+    robot = Robot()
+    # robot.traceTarget()
+    robot.mean_tracking()
