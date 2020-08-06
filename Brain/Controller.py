@@ -1,5 +1,5 @@
 from Sensing.CameraSensor import Camera
-from Sensing.ImageProcessing import ImageProcessor, Target
+from Sensing.ImageProcessing import *
 from Actuating.Motion import Motion, MOTION
 from threading import Thread
 import re # 숫자랑 문자분리하기
@@ -25,7 +25,6 @@ class Robot:
         self.j = 0
         self.i = 0
         self.str = ""
-
 
     def traceTarget(self):
         VIEW = ["DOWN60", "DOWN45", "DOWN35", "DOWN30", "DOWN10"]
@@ -81,8 +80,9 @@ class Robot:
     def mean_tracking(self):
         cnt = 0
         flag = 0
-        img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean()
-        # 몸도 움직이기 코드
+        # 처음 target 이미지를 찾는다
+        img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean(COLORS["RED"])
+        # 목의 움직임에 따라 몸도 움직이기 코드
         if "LEFT" in self.str:
             self.motion.init()
             self.motion.turn()
@@ -91,21 +91,25 @@ class Robot:
             self.motion.turn(direct=MOTION["DIR"]["RIGHT"])
         while True:
             try:
+                print("8888")
+                print("8888")
+                # 발견된 물체를 쫓아가는 부분
+                self.imageProcessor.meanShiftTracking_color(img_color, trackWindow, roi_hist, termination)
+                self.motion.walk()
 
-                if cnt % 10 == 10:  # 추적대상 update 하기
-                    img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean()
-                # 만약 추적되는 객체가 없으면 False 를 반환한다
-                print("8888")
-                print("8888")
-                need_to_change = self.imageProcessor.meanShiftTracking_color(img_color, trackWindow, roi_hist, termination)
+                # except의 물체를 찾은적이 있으면 움직인다 / 물체를 찾은 적없이 처음 시작하면 무작정 walk 하지 않음
                 cnt += 1
-                # 물체를 찾은적이 있으면 움직인다 / 물체를 찾은 적없이 처음 시작하면 무작정 walk 하지 않음
                 if cnt == 1:
                     flag = 1
                 print("8888")
                 print("8888")
-                self.motion.walk()
+
+                # 10프레임당 추적 대상 update 하기
+                if cnt % 10 == 10:
+                    img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean(COLORS["RED"])
+
             except:
+                # 찾은 target 이 없는 경우 -> 일단 앞으로 걸어가서 속도 증진
                 if flag == 1:  # 무작정 처음부터 움직이는것 방지하기
                     self.motion.walk()
                     self.motion.walk()
@@ -114,36 +118,61 @@ class Robot:
                 self.changeAngle(self.i, self.j)
 
 
-    def check_color_distance(self):
+
+
+    # 로봇의 위치를 기록하는 함수
+    def check_location(self):
 
         # 물체를 찾을 수 있는 각도로 머리를 든다
-        head = ["", "DOWN80"]
-        self.motion.head(view=MOTION["MODE"][head[i]])
+        self.motion.head(view=MOTION["MODE"]["DOWN80"])
 
-        # 목을 좌우로 움직인다
-        head_LR = ["", "CENTER", "LEFT30", "LEFT45", "LEFT60", "RIGHT30", "RIGHT45", "RIGHT60"]  # index = j
-        cnt = 1
-        point_lst = []  # 색깔이 있는 곳
-        while cnt != len(head_LR):
-            # 물체를 찾는다
-            cnt += 1
+        # 목을 좌우로 움직인다-left 로 돌리다가 벽을 마주하면 더 진행하지 말고 Right로 변경한다
+        head_LR = ["CENTER", "LEFT30", "LEFT45", "LEFT60", "RIGHT30", "RIGHT45", "RIGHT60"]  # index = j
+        head_L = ["LEFT30", "LEFT45", "LEFT60"]
+        head_R = ["RIGHT30", "RIGHT45", "RIGHT60"]
+
+        # 우선 초기에는 모든 방향을 다 확인하도록 설정 -> 나중에 변화시킨다
+        head_lst = head_LR
+
+        points = []  # target 색이 발견된 위치를 저장한다
+        # 물체를 찾을때까지 반복
+        cnt = 0
+        while True:
             try:
-                img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean()  # 물체가 있으면 밑에 수행하고 없으면 except를 수행한다
-                # 타깃이 확인된 각도를 리스트에 집어넣는다 -> 이값을 이용하여 색깔 인덱스를 기록해야됨
-                rr = re.findall("\d+", head_LR[cnt])
-                point_lst.append((rr, head_LR[cnt]))
-                # [(방향, 각도)] 리스트안에 튜플로 저장해서 각도가 작은것으로 다시 정렬을 한다
-                sorted_head_LR = sorted(head_LR, key=lambda x : x[1])
-                target = sorted_head_LR[0]
-                self.motion.head(target[0])
-                self.motion.walk()  # 앞으로 한번만 이동
-                self.motion.turn(direct=MOTION["DIR"]["RIGHT"])   # 몸돌리기
+                # 로봇의 움직임 head_LR 머리 좌우만 돌린다
+                self.motion.head(direction=MOTION["DIR"][head_lst[cnt]])
+                point_motion = head_lst[cnt]
+                img = self.imageProcessor.getImage()
 
+                # 벽검사 : 이미지 검사로 해당 방향이 벽인지 확인한다
+                if self.imageProcessor.isWall(img):
+                    if "LEFT" in point_motion:  # 왼쪽이 벽임
+                        head_lst = head_R
+                    if "RIGHT" in point_motion:  # 오른쪽이 벽임
+                        head_lst = head_L
+                    cnt = 0
 
-
+                # 벽이 아닌 경우 색상 판단 : 이미지를 찾는다 -> 여기서 에러가 발생할 수 있음(try-except처리)
+                self.mean_tracking()
+                points.append(point_motion)  # 방향과 각도를 집어넣는다 그런다음 각도가 작은 순으로 정렬한다  (각도가 작으면 떨어진 정도가 작기때문에)
+                cnt += 1
 
             except:
                 pass
+
+        # # 포인트 점을 다 찾으면 정렬해서 가까운 거리를 추출한다
+        # for point in points:
+        #         Angle = list(filter(str.isdigit, point_motion))  # 30를 추출한다
+        #         Angle = "".join(Angle)
+
+
+
+
+        # point 타깃을 찾고 나서 이제 움직인다
+        # # 로봇의 이동
+        # self.motion.walk()  # 앞으로 한번만 이동
+        # self.motion.turn(direct=MOTION["DIR"]["RIGHT"])   # 몸돌리기
+
 
 
 

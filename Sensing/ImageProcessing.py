@@ -79,6 +79,8 @@ class ImageProcessor:
             self.debug(img_mask)
 
         return img, img_mask
+
+
     def updateImage(self, src): # 카메라 쓰레드가 fresh 이미지를 계속해서 갱신해줌
         self.__src = src
 
@@ -114,9 +116,11 @@ class ImageProcessor:
         else:# 인식된 놈이 없다면 None 리턴
             return None
 
-    def selectObject_mean(self):
+    def selectObject_mean(self, color):
         centers = []
-        img_color, img_mask = self.getBinImage("RED")
+        img_color, img_mask = self.getBinImage(color)
+        # img_color, img_mask = self.getBinImage("RED")
+
         img_show = self.getImage()
         img_show = self.getImage()
         img_show = self.getImage()
@@ -157,14 +161,10 @@ class ImageProcessor:
 
 
     def meanShiftTracking_color(self, img_color, trackWindow, roi_hist, termination,  debug=True):  # 추적할 대상이 정해지면 그 좌표기준으로 사각형을 그려서 추적대상을 잡는다
-        need_to_update = True
         ######################## target의 업데이트 ####################
         img_color, trackWindow, roi_hist, termination = self.selectObject_mean()
 
-        if trackWindow is None:
-            need_to_update = False
-
-        if trackWindow is not None:
+        try:
             hsv = cv2.cvtColor(img_color, cv2.COLOR_BGR2HSV)
             dst = cv2.calcBackProject([hsv], [0], roi_hist, [0, 180], 1)  # roi_hist 설정하기
             ret, trackWindow = cv2.meanShift(dst, trackWindow, termination)
@@ -172,19 +172,28 @@ class ImageProcessor:
             Cx = x + w // 2
             Cy = y + h // 2
 
-        if (debug):
-            result = img_color.copy()
-            cv2.rectangle(result, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            cv2.line(result, (Cx, Cy), (Cx, Cy), (0, 0, 255), 10)
-            self.debug(result)
+            if Cx < 10 or Cx > img_color.shape[1] - 10 or Cy < 10 or Cy > img_color.shape[0] - 10:
+                print("객체가 벗어났습니다.")
+                need_to_update = False  # 새로운 객체를 찾으라는 명령을 내린다
 
-        if Cx < 10 or Cx > img_color.shape[1] - 10 or Cy < 10 or Cy > img_color.shape[0] - 10:
-            print("객체가 벗어났습니다.")
-            need_to_update = False  # 새로운 객체를 찾으라는 명령을 내린다
+            # 디버깅으로 추적한 물체 영역보여주기
+            if (debug):
+                result = img_color.copy()
+                cv2.rectangle(result, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                cv2.line(result, (Cx, Cy), (Cx, Cy), (0, 0, 255), 10)
+                self.debug(result)
 
-        return need_to_update
+        except:
+            pass
 
 
+    # 벽인지 확인해주는 함수
+    def isWall(self, img):
+        wall = False
+
+
+
+        return wall
 
 
 
