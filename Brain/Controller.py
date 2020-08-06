@@ -15,8 +15,7 @@ footline = (fx, fy) = (320, 420)
 
 class Robot:
     def __init__(self):
-        self.cam = Camera(
-            00.1)
+        self.cam = Camera(0.1)
         self.imageProcessor = ImageProcessor(self.cam.width, self.cam.height)
         self.cam_t = Thread(target=self.cam.produce, args=(self.imageProcessor,)) #카메라 센싱 쓰레드
         self.cam_t.start() # 카메라 프레임 공급 쓰레드 동작
@@ -49,20 +48,20 @@ class Robot:
                     self.motion.move(direct=MOTION["DIR"]["RIGHT"])
                 elif(dx > 40 ) : # 왼쪽
                     self.motion.move(direct=MOTION["DIR"]["LEFT"])
-            elif ( dy <= 0 ) :
+            elif ( dy <= 10 ) :
                 if idx < len(VIEWS)-1: # 대가리를 다 내린게 아닌데 기준선보다 아래이면
-                    self.motion.head(view=MOTION["VIEW"][VIEWS[idx%len(VIEWS)]])
+                    self.motion.head(view=MOTION["VIEW"][VIEWS[idx]])
                     idx += 1
                     idx = idx%len(VIEWS)#인덱스 초과시
                     print("head down")
                 elif idx == len(VIEWS)-1: # 대가리를 다 내린 상태에서 기준선 보다 아래이면 잡기 시전
-                    print("catch Target, doing grab")
+                    print("catch: Target, doing grab")
                     self.motion.grab()
 
 
     def findTarget(self, color="RED", turn="LEFT", debug=False): # 타깃이 발견될때까지 대가리 상하 좌우 & 몸 틀기 시전
         VIEWS = ["DOWN60", "DOWN45", "DOWN35", "DOWN30", "DOWN10"]
-        HEADS = ["CENTER", "LEFT45", "RIGHT45"]
+        HEADS = ["CENTER", "LEFT30", "RIGHT30"]
         TURNS = ["LEFT", "RIGHT"]
         HEAD_MOVING = [(VIEW,HEAD) for HEAD in HEADS for VIEW in VIEWS ]
 

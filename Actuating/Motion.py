@@ -14,7 +14,7 @@ MOTION = {
     "SPEED": {"FAST": 0, "RUN": 1, "SLOW": 2},
 
     "WALK": {
-        "START": 1,
+        "START": 9,
         "END": 400,
         "FRONT": 102,
         "BACK": 28
@@ -120,39 +120,44 @@ class Motion:
             self.TX_data_py2(direction)
         else:
             self.TX_data_py2(MOTION["MODE"]["VIEW"] + direction)
-        #while self.getRx():
-        #    print(self.getRx())
+        while self.getRx():
+            #print(self.getRx())
+            continue
         #self.lock = False
-        time.sleep(1)
+        #time.sleep(1)
         
         self.TX_data_py2(MOTION["MODE"]["VIEW"] + view)
-        #while self.getRx():
-        #    print(self.getRx())
+        while self.getRx():
+            #print(self.getRx())
+            continue
         #self.lock = False
-        time.sleep(1)
+        #time.sleep(1)
         pass
 
     def move(self, direct=MOTION["DIR"]["LEFT"], repeat=1):
         for _ in range(repeat):
             self.TX_data_py2(MOTION["MODE"]["MOVE"] + direct)
-        #while self.getRx():
+        while self.getRx():
+            continue
         #    print(self.getRx())
         #self.lock = False
-        time.sleep(1)
+        #time.sleep(1)
         pass
 
     def turn(self, direct=MOTION["DIR"]["LEFT"], repeat=1):
         for _ in range(repeat):
             self.TX_data_py2(direct + MOTION["MODE"]["TURN"])
-        #while self.getRx():
+        while self.getRx():
+            continue
         #    print(self.getRx())
         #self.lock = False
-        time.sleep(1)
+        #time.sleep(1)
         pass
 
     def grab(self):
         self.TX_data_py2(MOTION["GRAB"])
-        #while self.getRx():
+        while self.getRx():
+            continue
         #    print(self.getRx())
         #self.lock = False
         pass
@@ -163,12 +168,11 @@ class Motion:
 if __name__ == '__main__':
     temp = Motion()
     temp.init()
-    i = 5
-    while i > 0:
-        print(i)
-        temp.walk(speed=MOTION["SPEED"]["FAST"])
-        #temp.TX_data_py2(1)
-        i -= 1
+    #i = 5
+    #while i > 0:
+    #    print(i)
+    #    temp.walk(speed=MOTION["SPEED"]["FAST"])
+    #    #temp.TX_data_py2(1)
+    #    i -= 1
     pass
-
 
