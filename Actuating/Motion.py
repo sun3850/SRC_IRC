@@ -37,19 +37,20 @@ class Motion:
 
         # ---------local Serial Port : ttyS0 --------
         # ---------USB Serial Port : ttyAMA0 --------
-
         self.serial_port = serial.Serial('/dev/ttyS0', BPS, timeout=0.01)
         self.serial_port.flush()  # serial cls
         self.serial_t = Thread(target=self.Receiving, args=(self.serial_port,))
         self.serial_t.daemon = True
         self.serial_t.start()
         time.sleep(0.1)
+        
 
     def TX_data_py2(self, one_byte):  # one_byte= 0~255
         self.lock = True
+        #self.serial_open()
         self.serial_port.write(serial.to_bytes([one_byte]))  # python3
         time.sleep(1)
-        print("1111")
+        #print("1111")
     def RX_data(self):
         if self.serial_port.inWaiting() > 0:
             result = self.serial_port.read(1)
@@ -80,8 +81,9 @@ class Motion:
                 result = ser.read(1)
                 RX = ord(result)
                 if RX == 100:
-                    print("111")
+                    print("motion end")
                     self.lock = False
+                    #self.serial_port.close()
                 print("RX=" + str(RX))
                 # -----  remocon 16 Code  Exit ------
                 if RX == 16:
@@ -95,9 +97,9 @@ class Motion:
     def init(self):
         if self.lock == False:
             self.TX_data_py2(MOTION["SIGNAL"]["INIT"])
-            #while self.getRx():
-            #    print(self.getRx())
-            #time.sleep(1)
+            while self.getRx():
+                continue
+        #time.sleep(1)
         pass
 
     def walk(self, walk_signal=MOTION["WALK"]["START"], speed=MOTION["SPEED"]["SLOW"]):
@@ -106,8 +108,9 @@ class Motion:
                 self.TX_data_py2(MOTION["MODE"]["WALK"] + walk_signal)
             else:
                 self.TX_data_py2(MOTION["MODE"]["WALK"] + walk_signal + speed)
-            #while self.getRx():
-            #    print(self.getRx())
+            while self.getRx(): # when true wait
+                #print(self.getRx(), end="")
+                continue
             #time.sleep(1)
         pass
 
@@ -117,37 +120,41 @@ class Motion:
             self.TX_data_py2(direction)
         else:
             self.TX_data_py2(MOTION["MODE"]["VIEW"] + direction)
-        while not self.getRx():
-            print(self.getRx())
-        self.lock = False
-
+        #while self.getRx():
+        #    print(self.getRx())
+        #self.lock = False
+        time.sleep(1)
+        
         self.TX_data_py2(MOTION["MODE"]["VIEW"] + view)
-        while not self.getRx():
-            print(self.getRx())
-        self.lock = False
+        #while self.getRx():
+        #    print(self.getRx())
+        #self.lock = False
+        time.sleep(1)
         pass
 
     def move(self, direct=MOTION["DIR"]["LEFT"], repeat=1):
         for _ in range(repeat):
             self.TX_data_py2(MOTION["MODE"]["MOVE"] + direct)
-        while not self.getRx():
-            print(self.getRx())
-        self.lock = False
+        #while self.getRx():
+        #    print(self.getRx())
+        #self.lock = False
+        time.sleep(1)
         pass
 
     def turn(self, direct=MOTION["DIR"]["LEFT"], repeat=1):
         for _ in range(repeat):
             self.TX_data_py2(direct + MOTION["MODE"]["TURN"])
-        while not self.getRx():
-            print(self.getRx())
-        self.lock = False
+        #while self.getRx():
+        #    print(self.getRx())
+        #self.lock = False
+        time.sleep(1)
         pass
 
     def grab(self):
         self.TX_data_py2(MOTION["GRAB"])
-        while not self.getRx():
-            print(self.getRx())
-        self.lock = False
+        #while self.getRx():
+        #    print(self.getRx())
+        #self.lock = False
         pass
 
 # Tx를 보낸 후 응답을 받을 때 까지 Lock을 걸기 반대쪽에서 보낸 Rx가 유실 될 수도 있으니, 일정시간이 지나도 답이 안오면 재요청
