@@ -9,25 +9,41 @@ class Camera:
         self.fps = fps
         self.cap = cv2.VideoCapture(0)
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        self.width = 640
+        self.height = 480
+        self.cap.set(3, self.width)
+        self.cap.set(4, self.height)
+        self.fourcc = None
+        self.out = None
+
         
-        W_View_size =  640  #320  #640
-        #H_View_size = int(W_View_size / 1.777)
-        H_View_size = 480
-        self.cap.set(3, W_View_size)
-        self.cap.set(4, H_View_size)
+
         
-        self.width = int(self.cap.get(3))
-        self.height = int(self.cap.get(4))
-        
-    def produce(self, consumer):
+    def produce(self, consumer, record=False, filename=None):
+        if record:
+            self.fourcc = cv2.VideoWriter_fourcc(*'MJPG')  # 녹화기 생성
+            self.out = cv2.VideoWriter(str(filename)+'avi', self.fourcc, 30.0, (self.width, self.height))
+
         while (True):
             ret, frame = self.cap.read()
             # if resource was not produced, do not update ( = consumer cannot get resource )
             if ret is not True:
                 continue
             consumer.updateImage(frame)
+            if record:
+                self.out.write(frame)
             time.sleep(self.fps)
             # 업데이트 속도 초당 몇 프레임
+
+    def __del__(self):
+        self.cap.release()
+        self.out.release()
+
+
+
+
+
+
             
 
 #

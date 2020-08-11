@@ -10,7 +10,7 @@ import time  # time 라이브러리
 CAM_ID = 0
 W_View_size =  640  #320  #640
 #H_View_size = int(W_View_size / 1.777)
-H_View_size = int(W_View_size / 1.333)
+H_View_size = 480
 
 cam = cv2.VideoCapture(CAM_ID)  # 카메라 생성
 cam.set(3, W_View_size)
@@ -19,7 +19,7 @@ cam.set(4, H_View_size)
 cx = W_View_size//2
 cy = H_View_size//2
 
-fourcc = cv2.VideoWriter_fourcc(*'DIVX') # 녹화기 생성
+fourcc = cv2.VideoWriter_fourcc(*'MJPG') # 녹화기 생성
 out = cv2.VideoWriter('output.avi', fourcc, 30.0, (int(cam.get(3)),int(cam.get(4))))
 
 # 윈도우 생성 및 사이즈 변경
@@ -68,7 +68,7 @@ while (cam.isOpened()):
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
         else:
-            break
+            continue
 # 윈도우 종료
 cam.release()
 out.release()
