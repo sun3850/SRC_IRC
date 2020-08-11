@@ -16,12 +16,12 @@ COLORS["GREEN"] = {
     "upper" : [[],[],[]]
 }
 COLORS["BLUE"] = {
-    "lower" : [[],[],[]],
-    "upper" : [[],[],[]]
+    "lower" : [[101,95,63],[81,95,63],[81,95,63]],
+    "upper" : [[121,255,255],[101,255,255],[101,255,255]]
 }
 COLORS["RED"] = {
-    "upper" : [[182,255,162],[182,255,162],[182,255,162]],
-    "lower" : [[98,163,39],[98,163,39],[98,163,39]]
+    "lower" : [[178,98,121],[0,98,121],[158,98,121]],
+    "upper" : [[180,255,255],[18,255,255],[178,255,255]]
 }
 COLORS["RED2"] = {
     "lower" : [[139,145,186],[139,145,186],[139,145,186]],
@@ -56,13 +56,13 @@ class Target():
 
 
 class ImageProcessor:
-    def __init__(self, height, width):
+    def __init__(self, width, height):
         self.__src = np.zeros((height, width, 3), np.uint8)
 
     def getBinImage(self, color="RED", debug=False): # 인자로 넘겨 받은 색상만 남기고 리턴
         img = self.getImage()
         img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        lower1, lower2, lower3 = COLORS[color]["lower"]
+        lower1, lower2, lower3  = COLORS[color]["lower"]
         upper1, upper2, upper3 = COLORS[color]["upper"]
         img_mask1 = cv2.inRange(img_hsv, np.array(lower1), np.array(upper1))
         img_mask2 = cv2.inRange(img_hsv, np.array(lower2), np.array(upper2))
@@ -70,9 +70,9 @@ class ImageProcessor:
         temp = cv2.bitwise_or(img_mask1, img_mask2)
         img_mask = cv2.bitwise_or(img_mask3, temp)
         k = (11, 11)
-        kernel = np.ones(k, np.uint8)
-        img_mask = cv2.morphologyEx(img_mask, cv2.MORPH_OPEN, kernel)
-        img_mask = cv2.morphologyEx(img_mask, cv2.MORPH_CLOSE, kernel)
+        # kernel = np.ones(k, np.uint8)
+        # img_mask = cv2.morphologyEx(img_mask, cv2.MORPH_OPEN, kernel)
+        # img_mask = cv2.morphologyEx(img_mask, cv2.MORPH_CLOSE, kernel)
         # img_result = cv2.bitwise_and(img, img, mask=img_mask) # 해당 색상값만 남기기
 
         if(debug):
@@ -90,13 +90,15 @@ class ImageProcessor:
         return self.__src.copy()
 
     def avoidObstacle(self):
-        mask1 = self.getBinImage(color="RED")
-        mask2 = self.getBinImage(color="GREEN")
-        mask3 = self.getBinImage(color="BLUE")
-        temp = cv2.bitwise_or(mask1, mask2)
-        mask = cv2.bitwise_or(mask3, temp)
+        _, mask1 = self.getBinImage(color="RED")
+        #mask2 = self.getBinImage(color="GREEN")
+        _ ,mask3 = self.getBinImage(color="BLUE")
+        #temp = cv2.bitwise_or(mask1, mask3)
+        mask = cv2.bitwise_or(mask3, mask1)
         cv2.imshow("mask", mask)
         h, w = mask.shape[:2]
+        print(h, ",",w)
+        print(mask.shape)
         max_row_inds = h - np.argmax(mask[::-1], axis=0)
         row_inds = np.indices((h, w))[0]
         inds_after_edges = row_inds >= max_row_inds
@@ -108,8 +110,10 @@ class ImageProcessor:
         erosion = cv2.erode(filled_from_bottom, kernel, iterations=1)
         dilate = cv2.dilate(erosion, kernel, iterations=1)
         dilate = cv2.GaussianBlur(dilate, (5, 5), 0)
+        print(dilate.shape)
         # 비트연산
         src = self.getImage()
+        print(src.shape)
         dst = cv2.bitwise_and(src,src, mask=dilate)
         cv2.imshow("dst", dst)
         cv2.waitKey(1)
@@ -212,6 +216,7 @@ class ImageProcessor:
             print("객체가 벗어났습니다.")
             need_to_update = False  # 새로운 객체를 찾으라는 명령을 내린다
 
+
         return need_to_update
 
 
@@ -219,7 +224,7 @@ class ImageProcessor:
 
 if __name__ == "__main__":
     from Sensing.CameraSensor import Camera
-    cam = Camera(1)
+    cam = Camera(0.1)
     imageProcessor = ImageProcessor(cam.width, cam.height)
     cam_t = Thread(target=cam.produce, args=(imageProcessor,))  # 카메라 센싱 쓰레드
     cam_t.start()  # 카메라 프레임 공급 쓰레드 동작
