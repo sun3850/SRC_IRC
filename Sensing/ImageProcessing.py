@@ -20,8 +20,8 @@ COLORS["BLUE"] = {
     "upper" : [[],[],[]]
 }
 COLORS["RED"] = {
-    "upper" : [[182,255,190],[182,255,190],[182,255,190]],
-    "lower" : [[102,163,68],[102,163,68],[102,163,68]]
+    "upper" : [[182,255,162],[182,255,162],[182,255,162]],
+    "lower" : [[98,163,39],[98,163,39],[98,163,39]]
 }
 COLORS["RED2"] = {
     "lower" : [[139,145,186],[139,145,186],[139,145,186]],
@@ -62,7 +62,7 @@ class ImageProcessor:
     def getBinImage(self, color="RED", debug=False): # 인자로 넘겨 받은 색상만 남기고 리턴
         img = self.getImage()
         img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        lower1, lower2, lower3  = COLORS[color]["lower"]
+        lower1, lower2, lower3 = COLORS[color]["lower"]
         upper1, upper2, upper3 = COLORS[color]["upper"]
         img_mask1 = cv2.inRange(img_hsv, np.array(lower1), np.array(upper1))
         img_mask2 = cv2.inRange(img_hsv, np.array(lower2), np.array(upper2))
@@ -79,8 +79,6 @@ class ImageProcessor:
             self.debug(img_mask)
 
         return img, img_mask
-
-
     def updateImage(self, src): # 카메라 쓰레드가 fresh 이미지를 계속해서 갱신해줌
         self.__src = src
 
@@ -122,16 +120,10 @@ class ImageProcessor:
                 self.debug(img)
             return None
 
-    def selectObject_mean(self, color):
+    def selectObject_mean(self):
         centers = []
-        img_color, img_mask = self.getBinImage(color)
-        # img_color, img_mask = self.getBinImage("RED")
-
-        img_show = self.getImage()
-        img_show = self.getImage()
-        img_show = self.getImage()
-
-        self.debug(img_show)
+        img_color, img_mask = self.getBinImage("RED")
+        self.debug(img_color)
         # 등고선 따기
         contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
                                                cv2.CHAIN_APPROX_SIMPLE)
@@ -167,10 +159,14 @@ class ImageProcessor:
 
 
     def meanShiftTracking_color(self, img_color, trackWindow, roi_hist, termination,  debug=True):  # 추적할 대상이 정해지면 그 좌표기준으로 사각형을 그려서 추적대상을 잡는다
+        need_to_update = True
         ######################## target의 업데이트 ####################
         img_color, trackWindow, roi_hist, termination = self.selectObject_mean()
 
-        try:
+        if trackWindow is None:
+            need_to_update = False
+
+        if trackWindow is not None:
             hsv = cv2.cvtColor(img_color, cv2.COLOR_BGR2HSV)
             dst = cv2.calcBackProject([hsv], [0], roi_hist, [0, 180], 1)  # roi_hist 설정하기
             ret, trackWindow = cv2.meanShift(dst, trackWindow, termination)
@@ -178,28 +174,19 @@ class ImageProcessor:
             Cx = x + w // 2
             Cy = y + h // 2
 
-            if Cx < 10 or Cx > img_color.shape[1] - 10 or Cy < 10 or Cy > img_color.shape[0] - 10:
-                print("객체가 벗어났습니다.")
-                need_to_update = False  # 새로운 객체를 찾으라는 명령을 내린다
+        if (debug):
+            result = img_color.copy()
+            cv2.rectangle(result, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv2.line(result, (Cx, Cy), (Cx, Cy), (0, 0, 255), 10)
+            self.debug(result)
 
-            # 디버깅으로 추적한 물체 영역보여주기
-            if (debug):
-                result = img_color.copy()
-                cv2.rectangle(result, (x, y), (x + w, y + h), (0, 255, 0), 2)
-                cv2.line(result, (Cx, Cy), (Cx, Cy), (0, 0, 255), 10)
-                self.debug(result)
+        if Cx < 10 or Cx > img_color.shape[1] - 10 or Cy < 10 or Cy > img_color.shape[0] - 10:
+            print("객체가 벗어났습니다.")
+            need_to_update = False  # 새로운 객체를 찾으라는 명령을 내린다
 
-        except:
-            pass
+        return need_to_update
 
 
-    # 벽인지 확인해주는 함수
-    def isWall(self, img):
-        wall = False
-
-
-
-        return wall
 
     def setting_middle(): # 중앙으로 중심을 맞춘다
         pass
