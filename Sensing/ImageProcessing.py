@@ -89,7 +89,7 @@ class ImageProcessor:
     def getImage(self): # 이미지를 필요로 할때
         return self.__src.copy()
 
-    def avoidObstacle(self):
+    def avoidObstacle1(self): # 1안
         _, mask1 = self.getBinImage(color="RED")
         #mask2 = self.getBinImage(color="GREEN")
         _ ,mask3 = self.getBinImage(color="BLUE")
@@ -97,9 +97,35 @@ class ImageProcessor:
         mask = cv2.bitwise_or(mask3, mask1)
         cv2.imshow("mask", mask)
         h, w = mask.shape[:2]
-        print(h, ",",w)
-        print(mask.shape)
+        row_inds = np.indices((h, w))[0]  # gives row indices in shape of img
+        row_inds_at_edges = row_inds.copy()
+        row_inds_at_edges[mask == 0] = 0  # only get indices at edges, 0 elsewhere
+        max_row_inds = np.amax(row_inds_at_edges, axis=0)  # find the max row ind over each col
+        inds_after_edges = row_inds >= max_row_inds
+        filled_from_bottom = np.zeros((h, w), dtype=np.uint8)
+        filled_from_bottom[inds_after_edges] = 255
+        # 침식, 팽창 연산
+        vertical_size = int(w / 30)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (vertical_size, vertical_size))
+        erosion = cv2.erode(filled_from_bottom, kernel, iterations=1)
+        dilate = cv2.dilate(erosion, kernel, iterations=1)
+        dilate = cv2.GaussianBlur(dilate, (5, 5), 0)
+        # 비트연산
+        src = self.getImage()
+        dst = cv2.bitwise_and(src,src, mask=dilate)
+        cv2.imshow("dst", dst)
+        cv2.waitKey(1)
+
+    def avoidObstacle2(self): # 2안
+        _, mask1 = self.getBinImage(color="RED")
+        #mask2 = self.getBinImage(color="GREEN")
+        _ ,mask3 = self.getBinImage(color="BLUE")
+        #temp = cv2.bitwise_or(mask1, mask3)
+        mask = cv2.bitwise_or(mask3, mask1)
+        cv2.imshow("mask", mask)
+        h, w = mask.shape[:2]
         max_row_inds = h - np.argmax(mask[::-1], axis=0)
+        max_row_inds %= h
         row_inds = np.indices((h, w))[0]
         inds_after_edges = row_inds >= max_row_inds
         filled_from_bottom = np.zeros((h, w), dtype=np.uint8)
@@ -110,10 +136,8 @@ class ImageProcessor:
         erosion = cv2.erode(filled_from_bottom, kernel, iterations=1)
         dilate = cv2.dilate(erosion, kernel, iterations=1)
         dilate = cv2.GaussianBlur(dilate, (5, 5), 0)
-        print(dilate.shape)
         # 비트연산
         src = self.getImage()
-        print(src.shape)
         dst = cv2.bitwise_and(src,src, mask=dilate)
         cv2.imshow("dst", dst)
         cv2.waitKey(1)
@@ -224,12 +248,21 @@ class ImageProcessor:
 
 if __name__ == "__main__":
     from Sensing.CameraSensor import Camera
+    import time
     cam = Camera(0.1)
     imageProcessor = ImageProcessor(cam.width, cam.height)
     cam_t = Thread(target=cam.produce, args=(imageProcessor,))  # 카메라 센싱 쓰레드
     cam_t.start()  # 카메라 프레임 공급 쓰레드 동작
-
-    while(True):
-        imageProcessor.avoidObstacle()
+    times = range(1000)
+    prev = time.time()
+    for _ in times:
+        imageProcessor.avoidObstacle1()
+    curr = time.time()
+    print("method1:" , curr - prev)
+    prev = time.time()
+    for _ in times:
+        imageProcessor.avoidObstacle2()
+    curr = time.time()
+    print("method2: ", curr - prev)
     pass
 
