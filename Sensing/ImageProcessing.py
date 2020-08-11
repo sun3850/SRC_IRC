@@ -89,6 +89,34 @@ class ImageProcessor:
     def getImage(self): # 이미지를 필요로 할때
         return self.__src.copy()
 
+    def avoidObstacle(self):
+        mask1 = self.getBinImage(color="RED")
+        mask2 = self.getBinImage(color="GREEN")
+        mask3 = self.getBinImage(color="BLUE")
+        temp = cv2.bitwise_or(mask1, mask2)
+        mask = cv2.bitwise_or(mask3, temp)
+        cv2.imshow("mask", mask)
+        h, w = mask.shape[:2]
+        max_row_inds = h - np.argmax(mask[::-1], axis=0)
+        row_inds = np.indices((h, w))[0]
+        inds_after_edges = row_inds >= max_row_inds
+        filled_from_bottom = np.zeros((h, w), dtype=np.uint8)
+        filled_from_bottom[inds_after_edges] = 255
+        # 침식, 팽창 연산
+        vertical_size = int(w / 30)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (vertical_size, vertical_size))
+        erosion = cv2.erode(filled_from_bottom, kernel, iterations=1)
+        dilate = cv2.dilate(erosion, kernel, iterations=1)
+        dilate = cv2.GaussianBlur(dilate, (5, 5), 0)
+        # 비트연산
+        src = self.getImage()
+        dst = cv2.bitwise_and(src,src, mask=dilate)
+        cv2.imshow("dst", dst)
+        cv2.waitKey(1)
+
+
+
+
     def detectTarget(self, color="RED", debug = False):
         targets = [] # 인식한 타깃들을 감지
         img, img_mask = self.getBinImage(color=color)
@@ -188,11 +216,6 @@ class ImageProcessor:
 
 
 
-    def setting_middle(): # 중앙으로 중심을 맞춘다
-        pass
-
-
-
 
 if __name__ == "__main__":
     from Sensing.CameraSensor import Camera
@@ -202,6 +225,6 @@ if __name__ == "__main__":
     cam_t.start()  # 카메라 프레임 공급 쓰레드 동작
 
     while(True):
-        i = imageProcessor.getBinImage(color="RED1", debug=DEBUG)
+        imageProcessor.avoidObstacle()
     pass
 
