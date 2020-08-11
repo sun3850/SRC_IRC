@@ -19,10 +19,10 @@ class Camera:
         
 
         
-    def produce(self, consumer, record=False, filename=None):
+    def produce(self, consumer, record=True, filename="out"):
         if record:
             self.fourcc = cv2.VideoWriter_fourcc(*'MJPG')  # 녹화기 생성
-            self.out = cv2.VideoWriter(str(filename)+'avi', self.fourcc, 30.0, (self.width, self.height))
+            self.out = cv2.VideoWriter(str(filename)+'.avi', self.fourcc, 30.0, (self.width, self.height))
 
         while (True):
             ret, frame = self.cap.read()
