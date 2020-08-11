@@ -1,11 +1,10 @@
 from Sensing.CameraSensor import Camera
-from Sensing.ImageProcessing import *
+from Sensing.ImageProcessing import ImageProcessor, Target
 from Actuating.Motion import Motion, MOTION
 from threading import Thread
-import re # 숫자랑 문자분리하기
 
 baseline = (bx, by) = (320, 420)
-
+footline = (fx, fy) = (320, 420)
 
 # class Target:
 #     def __init__(self):
@@ -16,46 +15,86 @@ baseline = (bx, by) = (320, 420)
 
 class Robot:
     def __init__(self):
-        self.cam = Camera(0.1)
+        self.cam = Camera(fps = 0.1)
         self.imageProcessor = ImageProcessor(self.cam.width, self.cam.height)
-        self.cam_t = Thread(target=self.cam.produce, args=(self.imageProcessor,))  # 카메라 센싱 쓰레드
-        self.cam_t.start()  # 카메라 프레임 공급 쓰레드 동작
+        self.cam_t = Thread(target=self.cam.produce, args=(self.imageProcessor,)) #카메라 센싱 쓰레드
+        self.cam_t.start() # 카메라 프레임 공급 쓰레드 동작
         self.motion = Motion()
         self.motion.init()
         self.j = 0
         self.i = 0
         self.str = ""
 
+
     def traceTarget(self):
-        VIEW = ["DOWN60", "DOWN45", "DOWN35", "DOWN30", "DOWN10"]
+        VIEWS = ["DOWN60", "DOWN45", "DOWN35", "DOWN30", "DOWN10"]
         idx = 0
-        self.motion.init()
-        while (True):
-            print("here1")
+        self.findTarget()
+        while(True):
+            print("**traceTarget**")
             target = self.imageProcessor.detectTarget(color="RED", debug=True)
-            if target is None:  # 만약에 객체가 없거나 이탈하면, 다시 객체를 찾아야한다.
+            if target is None: # 만약에 객체가 없거나 이탈하면, 다시 객체를 찾아야한다.
+                print("**No Target**")
+                idx = 0
+                self.findTarget(color="RED", turn="LEFT", debug=True)
                 continue
             (dx, dy) = target.getDistance(baseline=baseline)
             print("distance gap . dx : {} , dy : {}".format(dx, dy))
-            if (-30 < dx < 30 and dy > 0):
+
+
+            if (-40 <= dx <= 40 and dy > 0 ):
                 print("walk")
                 self.motion.walk()
-
-            elif (dx < -40 and dy > 0):  # 오른쪽
+            elif ( dx < -40 and dy > 0) : # 오른쪽
                 self.motion.move(direct=MOTION["DIR"]["RIGHT"])
-
-            elif (dx > 40 and dy > 0):  # 왼쪽
+            elif ( dx > 40 and dy > 0) : # 왼쪽
                 self.motion.move(direct=MOTION["DIR"]["LEFT"])
-            elif (dy < 0):
-                self.motion.head(view=MOTION["VIEW"][VIEW[idx]])
+            elif ( dy <= 0 ) :
+                self.motion.head(view=MOTION["VIEW"][VIEWS[idx%len(VIEWS)]])
                 idx += 1
                 print("head down")
-            if idx == len(VIEW):
+            elif idx == len(VIEWS): # 머리를 다 숙인 상태에서 찾았다면
+                print("catch Target, doing grab")
+                self.motion.grab()
+
+
+    def findTarget(self, color="RED", turn="LEFT", debug=False): # 타깃이 발견될때까지 대가리 상하 좌우 & 몸 틀기 시전
+        VIEWS = ["DOWN60", "DOWN45", "DOWN35", "DOWN30", "DOWN10"]
+        HEADS = ["CENTER", "LEFT45", "RIGHT45"]
+        TURNS = ["LEFT", "RIGHT"]
+        HEAD_MOVING = [(VIEW,HEAD) for HEAD in HEADS for VIEW in VIEWS ]
+
+        self.motion.init()
+
+        for VIEW, HEAD in HEAD_MOVING: # 센터 위아래 -> 왼쪽 위아래 -> 오른쪽 위아래 순으로 탐색
+            self.motion.head(view=MOTION["MODE"][VIEW], direction=MOTION["DIR"][HEAD])
+            target = self.imageProcessor.detectTarget(color=color, debug=debug)
+            if target is None: # 해당 방향에 타깃이 없다면
+                continue
+            else: # 해당 방향에 타깃이 있다면 , 방향으로 몸을 틀고
+                if "LEFT" in VIEW: # 왼쪽에서 발견했으면 왼쪽으로 틀고
+                    self.motion.turn(direct=MOTION["DIR"]["LEFT"])
+                    # self.motion.init()
+                    print("find left Target, turn left")
+                elif "RIGHT" in VIEW: # 오른쪽에서 발견했으면 오른쪽으로 틀고
+                    self.motion.turn(direct=MOTION["DIR"]["RIGHT"])
+                    # self.motion.init()
+                    print("find right Target, turn right")
+                else:
+                    print("find center Target, not turn")
                 return
 
-    def findTarget(self):  # 타깃이 발견될때까지 대가리 상하 좌우 & 몸 틀기 시전
-        VIEW = ["DOWN60", "DOWN45", "DOWN35", "DOWN30", "DOWN10"]
-        HEAD = ["LEFT45", "RIGHT45", "CENTER"]
+        # 모든 탐색을 했지만 아무도 없다면 왼쪽 또는 오른 쪽으로 몸을 틀고 재탐색
+        print("cannot find Target, turn "+turn)
+        self.motion.turn(direct=MOTION["DIR"][turn])
+        return self.findTarget(color=color)
+
+
+
+
+
+
+
 
     def changeAngle(self, i, j):
         # 목각도를 변경하기위해 로봇에게 통신을 한다음 다시 track을 시작한다
@@ -80,9 +119,8 @@ class Robot:
     def mean_tracking(self):
         cnt = 0
         flag = 0
-        # 처음 target 이미지를 찾는다
-        img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean(COLORS["RED"])
-        # 목의 움직임에 따라 몸도 움직이기 코드
+        img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean()
+        # 몸도 움직이기 코드
         if "LEFT" in self.str:
             self.motion.init()
             self.motion.turn()
@@ -91,25 +129,21 @@ class Robot:
             self.motion.turn(direct=MOTION["DIR"]["RIGHT"])
         while True:
             try:
-                print("8888")
-                print("8888")
-                # 발견된 물체를 쫓아가는 부분
-                self.imageProcessor.meanShiftTracking_color(img_color, trackWindow, roi_hist, termination)
-                self.motion.walk()
 
-                # except의 물체를 찾은적이 있으면 움직인다 / 물체를 찾은 적없이 처음 시작하면 무작정 walk 하지 않음
+                if cnt % 10 == 10:  # 추적대상 update 하기
+                    img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean()
+                # 만약 추적되는 객체가 없으면 False 를 반환한다
+                print("8888")
+                print("8888")
+                need_to_change = self.imageProcessor.meanShiftTracking_color(img_color, trackWindow, roi_hist, termination)
                 cnt += 1
+                # 물체를 찾은적이 있으면 움직인다 / 물체를 찾은 적없이 처음 시작하면 무작정 walk 하지 않음
                 if cnt == 1:
                     flag = 1
                 print("8888")
                 print("8888")
-
-                # 10프레임당 추적 대상 update 하기
-                if cnt % 10 == 10:
-                    img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean(COLORS["RED"])
-
+                self.motion.walk()
             except:
-                # 찾은 target 이 없는 경우 -> 일단 앞으로 걸어가서 속도 증진
                 if flag == 1:  # 무작정 처음부터 움직이는것 방지하기
                     self.motion.walk()
                     self.motion.walk()
@@ -118,61 +152,36 @@ class Robot:
                 self.changeAngle(self.i, self.j)
 
 
-
-
-    # 로봇의 위치를 기록하는 함수
-    def check_location(self):
+    def check_color_distance(self):
 
         # 물체를 찾을 수 있는 각도로 머리를 든다
         self.motion.head(view=MOTION["MODE"]["DOWN80"])
 
-        # 목을 좌우로 움직인다-left 로 돌리다가 벽을 마주하면 더 진행하지 말고 Right로 변경한다
-        head_LR = ["CENTER", "LEFT30", "LEFT45", "LEFT60", "RIGHT30", "RIGHT45", "RIGHT60"]  # index = j
-        head_L = ["LEFT30", "LEFT45", "LEFT60"]
-        head_R = ["RIGHT30", "RIGHT45", "RIGHT60"]
+        # 목을 좌우로 움직인다
+        head_LR = ["", "CENTER", "LEFT30", "LEFT45", "LEFT60", "RIGHT30", "RIGHT45", "RIGHT60"]  # index = j
+        
+        head_LR = ["", "CENTER", "LEFT30", "RIGHT30", "LEFT45", "RIGHT45", "LEFT60", "RIGHT60"]  # index = j
+        
 
-        # 우선 초기에는 모든 방향을 다 확인하도록 설정 -> 나중에 변화시킨다
-        head_lst = head_LR
-
-        points = []  # target 색이 발견된 위치를 저장한다
-        # 물체를 찾을때까지 반복
-        cnt = 0
-        while True:
+        cnt = 1
+        point_lst = []  # target 색깔이 있는 곳
+        while cnt != len(head_LR):
+            # 물체를 찾는다
+            cnt += 1
             try:
-                # 로봇의 움직임 head_LR 머리 좌우만 돌린다
-                self.motion.head(direction=MOTION["DIR"][head_lst[cnt]])
-                point_motion = head_lst[cnt]
-                img = self.imageProcessor.getImage()
-
-                # 벽검사 : 이미지 검사로 해당 방향이 벽인지 확인한다
-                if self.imageProcessor.isWall(img):
-                    if "LEFT" in point_motion:  # 왼쪽이 벽임
-                        head_lst = head_R
-                    if "RIGHT" in point_motion:  # 오른쪽이 벽임
-                        head_lst = head_L
-                    cnt = 0
-
-                # 벽이 아닌 경우 색상 판단 : 이미지를 찾는다 -> 여기서 에러가 발생할 수 있음(try-except처리)
-                self.mean_tracking()
-                points.append(point_motion)  # 방향과 각도를 집어넣는다 그런다음 각도가 작은 순으로 정렬한다  (각도가 작으면 떨어진 정도가 작기때문에)
-                cnt += 1
+                img_color, trackWindow, roi_hist, termination = self.imageProcessor.selectObject_mean()  # 물체가 있으면 밑에 수행하고 없으면 except를 수행한다
+                # 타깃이 확인된 각도를 리스트에 집어넣는다 -> 이값을 이용하여 색깔 인덱스를 기록해야됨
+                rr = re.findall("\d+", head_LR[cnt])
+                point_lst.append((rr, head_LR[cnt]))
+                # [(방향, 각도)] 리스트안에 튜플로 저장해서 각도가 작은것으로 다시 정렬을 한다
+                sorted_head_LR = sorted(head_LR, key=lambda x : x[1])
+                target = sorted_head_LR[0]
+                self.motion.head(target[0])
+                self.motion.walk()  # 앞으로 한번만 이동
+                self.motion.turn(direct=MOTION["DIR"]["RIGHT"])   # 몸돌리기
 
             except:
                 pass
-
-        # # 포인트 점을 다 찾으면 정렬해서 가까운 거리를 추출한다
-        # for point in points:
-        #         Angle = list(filter(str.isdigit, point_motion))  # 30를 추출한다
-        #         Angle = "".join(Angle)
-
-
-
-
-        # point 타깃을 찾고 나서 이제 움직인다
-        # # 로봇의 이동
-        # self.motion.walk()  # 앞으로 한번만 이동
-        # self.motion.turn(direct=MOTION["DIR"]["RIGHT"])   # 몸돌리기
-
 
 
 
@@ -180,9 +189,6 @@ class Robot:
 
 
 if __name__ == "__main__":
-    cam = Camera(0.1)
-    imageProcessor = ImageProcessor(cam.width, cam.height)
-    # p = Process(target=cam.produce, args=[imageProcessor]) # 카메라 센싱 데이터 한 프로세스 내에서 자원의 공유는 가능하다. 그러나 서로 다른 프로세스에서 자원의 공유는 불가능하다....
-    # p.start()
-    t = Thread(target=cam.produce, args=(imageProcessor,))  # 카메라 센싱 쓰레드
-    t.start()
+    robot = Robot()
+    # robot.traceTarget()
+    robot.mean_tracking()

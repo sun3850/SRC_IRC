@@ -111,9 +111,15 @@ class ImageProcessor:
         if targets: # 타깃이 인식 됐다면 제일 가까운놈 리턴
             targets.sort(key=lambda x: x.y+x.height, reverse=True) # 인식된 애들중 가까운 놈 기준으로 정렬
             target = targets[0] # 제일 가까운 놈만 남김
-                        
+            if(debug):
+                cv2.circle(img, (target.centerX, target.centerY), 10, (0, 255, 0), 10)
+                cv2.rectangle(img, (target.x, target.y), (target.x + target.width, target.y + target.height), (0, 255, 0))
+                self.debug(img)
             return target
         else:# 인식된 놈이 없다면 None 리턴
+            if(debug):
+                cv2.putText(img, "** NO TARGET **", (320, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255))
+                self.debug(img)
             return None
 
     def selectObject_mean(self, color):
@@ -194,6 +200,10 @@ class ImageProcessor:
 
 
         return wall
+
+    def setting_middle(): # 중앙으로 중심을 맞춘다
+        pass
+
 
 
 
