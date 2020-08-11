@@ -13,4 +13,6 @@ website : http://www.seoultechrobot.com/
 - 9월 6일 : 오전 9시~10시 화상 연결 test 진행 
 - 9월 6일 : 10시부터 순서 대로 발표 진행 
 - 9월 6일 : 화상 발표 이후 30분 이내에 순위 발
+## 4) Reference
+- obstacle avoidance : http://www.roborealm.com/tutorial/Obstacle_Avoidance/slide010.php
 

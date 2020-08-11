@@ -62,7 +62,7 @@ class ImageProcessor:
     def getBinImage(self, color="RED", debug=False): # 인자로 넘겨 받은 색상만 남기고 리턴
         img = self.getImage()
         img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        lower1, lower2, lower3  = COLORS[color]["lower"]
+        lower1, lower2, lower3 = COLORS[color]["lower"]
         upper1, upper2, upper3 = COLORS[color]["upper"]
         img_mask1 = cv2.inRange(img_hsv, np.array(lower1), np.array(upper1))
         img_mask2 = cv2.inRange(img_hsv, np.array(lower2), np.array(upper2))
@@ -88,6 +88,34 @@ class ImageProcessor:
 
     def getImage(self): # 이미지를 필요로 할때
         return self.__src.copy()
+
+    def avoidObstacle(self):
+        mask1 = self.getBinImage(color="RED")
+        mask2 = self.getBinImage(color="GREEN")
+        mask3 = self.getBinImage(color="BLUE")
+        temp = cv2.bitwise_or(mask1, mask2)
+        mask = cv2.bitwise_or(mask3, temp)
+        cv2.imshow("mask", mask)
+        h, w = mask.shape[:2]
+        max_row_inds = h - np.argmax(mask[::-1], axis=0)
+        row_inds = np.indices((h, w))[0]
+        inds_after_edges = row_inds >= max_row_inds
+        filled_from_bottom = np.zeros((h, w), dtype=np.uint8)
+        filled_from_bottom[inds_after_edges] = 255
+        # 침식, 팽창 연산
+        vertical_size = int(w / 30)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (vertical_size, vertical_size))
+        erosion = cv2.erode(filled_from_bottom, kernel, iterations=1)
+        dilate = cv2.dilate(erosion, kernel, iterations=1)
+        dilate = cv2.GaussianBlur(dilate, (5, 5), 0)
+        # 비트연산
+        src = self.getImage()
+        dst = cv2.bitwise_and(src,src, mask=dilate)
+        cv2.imshow("dst", dst)
+        cv2.waitKey(1)
+
+
+
 
     def detectTarget(self, color="RED", debug = False):
         targets = [] # 인식한 타깃들을 감지
@@ -123,11 +151,7 @@ class ImageProcessor:
     def selectObject_mean(self):
         centers = []
         img_color, img_mask = self.getBinImage("RED")
-        img_show = self.getImage()
-        img_show = self.getImage()
-        img_show = self.getImage()
-
-        self.debug(img_show)
+        self.debug(img_color)
         # 등고선 따기
         contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
                                                cv2.CHAIN_APPROX_SIMPLE)
@@ -192,11 +216,6 @@ class ImageProcessor:
 
 
 
-    def setting_middle(): # 중앙으로 중심을 맞춘다
-        pass
-
-
-
 
 if __name__ == "__main__":
     from Sensing.CameraSensor import Camera
@@ -206,6 +225,6 @@ if __name__ == "__main__":
     cam_t.start()  # 카메라 프레임 공급 쓰레드 동작
 
     while(True):
-        i = imageProcessor.getBinImage(color="RED1", debug=DEBUG)
+        imageProcessor.avoidObstacle()
     pass
 
