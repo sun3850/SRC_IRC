@@ -17,11 +17,16 @@ footline = (fx, fy) = (320, 420)
 #         self.target
 
 class Robot:
-    def __init__(self):
+    def __init__(self, record, filename):
         self.cam = Camera(0.1)
         self.imageProcessor = ImageProcessor(self.cam.width, self.cam.height)
+<<<<<<< HEAD
         self.cam_t = Thread(target=self.cam.produce, args=(self.imageProcessor,))  # 카메라 센싱 쓰레드
         self.cam_t.start()  # 카메라 프레임 공급 쓰레드 동작
+=======
+        self.cam_t = Thread(target=self.cam.produce, args=(self.imageProcessor,record,filename)) #카메라 센싱 쓰레드
+        self.cam_t.start() # 카메라 프레임 공급 쓰레드 동작
+>>>>>>> 3bf4c7fe9a7db3fe6fa3f01414ebc2a0af460482
         self.motion = Motion()
         self.motion.init()
         self.j = 0

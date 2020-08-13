@@ -16,8 +16,17 @@ COLORS["GREEN"] = {
     "upper": [[87, 255, 255], [77, 255, 255], [77, 255, 255]]
 }
 COLORS["BLUE"] = {
+<<<<<<< HEAD
     "lower": [[108, 30, 30], [98, 30, 30], [98, 30, 30]],
     "upper": [[118, 255, 255], [108, 255, 255], [108, 255, 255]]
+=======
+    "lower" : [[101,95,63],[81,95,63],[81,95,63]],
+    "upper" : [[121,255,255],[101,255,255],[101,255,255]]
+}
+COLORS["RED"] = {
+    "lower" : [[178,98,121],[0,98,121],[158,98,121]],
+    "upper" : [[180,255,255],[18,255,255],[178,255,255]]
+>>>>>>> 3bf4c7fe9a7db3fe6fa3f01414ebc2a0af460482
 }
 # COLORS["RED"] = {
 #    "upper" : [[182,255,162],[182,255,162],[182,255,162]],
@@ -56,13 +65,13 @@ class Target():
 
 
 class ImageProcessor:
-    def __init__(self, height, width):
+    def __init__(self, width, height):
         self.__src = np.zeros((height, width, 3), np.uint8)
 
     def getBinImage(self, color, debug=False):  # 인자로 넘겨 받은 색상만 남기고 리턴
         img = self.getImage()
         img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-        lower1, lower2, lower3 = COLORS[color]["lower"]
+        lower1, lower2, lower3  = COLORS[color]["lower"]
         upper1, upper2, upper3 = COLORS[color]["upper"]
         img_mask1 = cv2.inRange(img_hsv, np.array(lower1), np.array(upper1))
         img_mask2 = cv2.inRange(img_hsv, np.array(lower2), np.array(upper2))
@@ -70,9 +79,9 @@ class ImageProcessor:
         temp = cv2.bitwise_or(img_mask1, img_mask2)
         img_mask = cv2.bitwise_or(img_mask3, temp)
         k = (11, 11)
-        kernel = np.ones(k, np.uint8)
-        img_mask = cv2.morphologyEx(img_mask, cv2.MORPH_OPEN, kernel)
-        img_mask = cv2.morphologyEx(img_mask, cv2.MORPH_CLOSE, kernel)
+        # kernel = np.ones(k, np.uint8)
+        # img_mask = cv2.morphologyEx(img_mask, cv2.MORPH_OPEN, kernel)
+        # img_mask = cv2.morphologyEx(img_mask, cv2.MORPH_CLOSE, kernel)
         # img_result = cv2.bitwise_and(img, img, mask=img_mask) # 해당 색상값만 남기기
 
         if (debug):
@@ -89,8 +98,69 @@ class ImageProcessor:
     def getImage(self):  # 이미지를 필요로 할때
         return self.__src.copy()
 
+<<<<<<< HEAD
     def detectTarget(self, color="RED", debug=False):
         targets = []  # 인식한 타깃들을 감지
+=======
+    def avoidObstacle1(self): # 1안
+        _, mask1 = self.getBinImage(color="RED")
+        #mask2 = self.getBinImage(color="GREEN")
+        _ ,mask3 = self.getBinImage(color="BLUE")
+        #temp = cv2.bitwise_or(mask1, mask3)
+        mask = cv2.bitwise_or(mask3, mask1)
+        cv2.imshow("mask", mask)
+        h, w = mask.shape[:2]
+        row_inds = np.indices((h, w))[0]  # gives row indices in shape of img
+        row_inds_at_edges = row_inds.copy()
+        row_inds_at_edges[mask == 0] = 0  # only get indices at edges, 0 elsewhere
+        max_row_inds = np.amax(row_inds_at_edges, axis=0)  # find the max row ind over each col
+        inds_after_edges = row_inds >= max_row_inds
+        filled_from_bottom = np.zeros((h, w), dtype=np.uint8)
+        filled_from_bottom[inds_after_edges] = 255
+        # 침식, 팽창 연산
+        vertical_size = int(w / 30)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (vertical_size, vertical_size))
+        erosion = cv2.erode(filled_from_bottom, kernel, iterations=1)
+        dilate = cv2.dilate(erosion, kernel, iterations=1)
+        dilate = cv2.GaussianBlur(dilate, (5, 5), 0)
+        # 비트연산
+        src = self.getImage()
+        dst = cv2.bitwise_and(src,src, mask=dilate)
+        cv2.imshow("dst", dst)
+        cv2.waitKey(1)
+
+    def avoidObstacle2(self): # 2안
+        _, mask1 = self.getBinImage(color="RED")
+        #mask2 = self.getBinImage(color="GREEN")
+        _ ,mask3 = self.getBinImage(color="BLUE")
+        #temp = cv2.bitwise_or(mask1, mask3)
+        mask = cv2.bitwise_or(mask3, mask1)
+        cv2.imshow("mask", mask)
+        h, w = mask.shape[:2]
+        max_row_inds = h - np.argmax(mask[::-1], axis=0)
+        max_row_inds %= h
+        row_inds = np.indices((h, w))[0]
+        inds_after_edges = row_inds >= max_row_inds
+        filled_from_bottom = np.zeros((h, w), dtype=np.uint8)
+        filled_from_bottom[inds_after_edges] = 255
+        # 침식, 팽창 연산
+        vertical_size = int(w / 30)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (vertical_size, vertical_size))
+        erosion = cv2.erode(filled_from_bottom, kernel, iterations=1)
+        dilate = cv2.dilate(erosion, kernel, iterations=1)
+        dilate = cv2.GaussianBlur(dilate, (5, 5), 0)
+        # 비트연산
+        src = self.getImage()
+        dst = cv2.bitwise_and(src,src, mask=dilate)
+        cv2.imshow("dst", dst)
+        cv2.waitKey(1)
+
+
+
+
+    def detectTarget(self, color="RED", debug = False):
+        targets = [] # 인식한 타깃들을 감지
+>>>>>>> 3bf4c7fe9a7db3fe6fa3f01414ebc2a0af460482
         img, img_mask = self.getBinImage(color=color)
         img_result = cv2.bitwise_and(img, img, mask=img_mask)  # 해당 색상값만 남기기
         if (debug):
@@ -183,6 +253,7 @@ class ImageProcessor:
             print("객체가 벗어났습니다.")
             need_to_update = False  # 새로운 객체를 찾으라는 명령을 내린다
 
+<<<<<<< HEAD
         return need_to_update
 
     #  한 화면에서 3가지의 색을 검출해서 가장 많은 블록의 색을 return한다
@@ -203,6 +274,10 @@ class ImageProcessor:
         # 등고선 따기 (화면에 다 안들어온 이미지는 등고선이 안그려질 수도...)
         contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
                                                cv2.CHAIN_APPROX_SIMPLE)
+=======
+
+        return need_to_update
+>>>>>>> 3bf4c7fe9a7db3fe6fa3f01414ebc2a0af460482
 
         for cnt in contours:
             area = cv2.contourArea(cnt)
@@ -230,6 +305,7 @@ class ImageProcessor:
 
 if __name__ == "__main__":
     from Sensing.CameraSensor import Camera
+<<<<<<< HEAD
 
     cam = Camera(1)
     imageProcessor = ImageProcessor(cam.width, cam.height)
@@ -238,5 +314,23 @@ if __name__ == "__main__":
 
     while (True):
         i = imageProcessor.getBinImage(color="RED1", debug=DEBUG)
+=======
+    import time
+    cam = Camera(0.1)
+    imageProcessor = ImageProcessor(cam.width, cam.height)
+    cam_t = Thread(target=cam.produce, args=(imageProcessor,))  # 카메라 센싱 쓰레드
+    cam_t.start()  # 카메라 프레임 공급 쓰레드 동작
+    times = range(1000)
+    prev = time.time()
+    for _ in times:
+        imageProcessor.avoidObstacle1()
+    curr = time.time()
+    print("method1:" , curr - prev)
+    prev = time.time()
+    for _ in times:
+        imageProcessor.avoidObstacle2()
+    curr = time.time()
+    print("method2: ", curr - prev)
+>>>>>>> 3bf4c7fe9a7db3fe6fa3f01414ebc2a0af460482
     pass
 
