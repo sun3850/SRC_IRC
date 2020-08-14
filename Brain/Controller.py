@@ -20,13 +20,10 @@ class Robot:
     def __init__(self, record, filename):
         self.cam = Camera(0.1)
         self.imageProcessor = ImageProcessor(self.cam.width, self.cam.height)
-<<<<<<< HEAD
         self.cam_t = Thread(target=self.cam.produce, args=(self.imageProcessor,))  # 카메라 센싱 쓰레드
         self.cam_t.start()  # 카메라 프레임 공급 쓰레드 동작
-=======
         self.cam_t = Thread(target=self.cam.produce, args=(self.imageProcessor,record,filename)) #카메라 센싱 쓰레드
         self.cam_t.start() # 카메라 프레임 공급 쓰레드 동작
->>>>>>> 3bf4c7fe9a7db3fe6fa3f01414ebc2a0af460482
         self.motion = Motion()
         self.motion.init()
         self.j = 0
@@ -309,7 +306,8 @@ class Robot:
                         if screen_center - 200 < Cx < screen_center + 200:  # 왼쪽으로 장애물이 있으면 오른쯕으로 걷기
                             print("물건을 집습니다.")
                             self.motion.grab()
-                            self.motion.graboff()
+                            self.checkCitizen()  # 물체를 탐색한다
+                            break
                             ############################## 이부분에  while을 놓치는 경우대비 계속잡기
                         elif Cx > screen_center + 200:
                             self.motion.move(direct=MOTION["DIR"]["RIGHT"])
