@@ -17,13 +17,11 @@ footline = (fx, fy) = (320, 420)
 #         self.target
 
 class Robot:
-    def __init__(self, record, filename):
+    def __init__(self):
         self.cam = Camera(0.1)
         self.imageProcessor = ImageProcessor(self.cam.width, self.cam.height)
         self.cam_t = Thread(target=self.cam.produce, args=(self.imageProcessor,))  # 카메라 센싱 쓰레드
         self.cam_t.start()  # 카메라 프레임 공급 쓰레드 동작
-        self.cam_t = Thread(target=self.cam.produce, args=(self.imageProcessor,record,filename)) #카메라 센싱 쓰레드
-        self.cam_t.start() # 카메라 프레임 공급 쓰레드 동작
         self.motion = Motion()
         self.motion.init()
         self.j = 0
@@ -31,6 +29,8 @@ class Robot:
         self.str = ""
         self.total_result = {}
         self.possible = []  # 가능한 방향 선택하기  (left45, 30)
+        self.direction = ""
+        self.grabMode = False
 
     def traceTarget(self):
         VIEWS = ["DOWN60", "DOWN45", "DOWN35", "DOWN30", "DOWN10"]
@@ -173,29 +173,24 @@ class Robot:
                     self.total_result[head_LR[j]] = store_color  # {라인: RRGBRRG}
                     angle = re.findall("\d+", head[i])
                     self.possible.append((head_LR[j], angle[0]))
-        print("resu;t:::", self.possible)
+        print("result:::", self.possible)
+        self.centralize()  # 해당 방향으로 몸을 돌린다
 
-    def return_result(self):
+    def centralize(self, direction=None, angle=None, grab=None, debug=True):
         self.possible = sorted(self.possible, key=lambda x: x[1])
         print(self.possible)
         print("몸을 돌릴 방향", self.possible[0])
         target_turn = self.possible[0][0]
         angle = self.possible[0][1]
+        targetAngle = "DOWN" + angle
         # 몸 방향 돌리기
 
         if "LEFT" in target_turn:
             self.motion.init()
-            self.motion.turn(repeat=4)
+            self.motion.turn("GRAB", repeat=4)
         elif "RIGHT" in target_turn:
             self.motion.init()
-            self.motion.turn(direct=MOTION["DIR"]["RIGHT"], repeat=4)
-        # 몸 방향 돌리기 2: 디테일하게 중심점을 맞춰서 (움직여야할 방향을 인자로 넘겨준다)
-        self.centralize(target_turn, angle)
-
-    def centralize(self, direction=None, angle=None, debug=True):
-        if direction is not None and angle is not None:
-            targetAngle = "DOWN" + angle
-            self.motion.head(view=MOTION["VIEW"][targetAngle])
+            self.motion.turn("GRAB", direct=MOTION["DIR"]["RIGHT"], repeat=4)
 
         while True:
             self.motion.head(view=MOTION["VIEW"][targetAngle])
@@ -215,10 +210,10 @@ class Robot:
             # 만약 앞선 전처리방향으로 몸을 돌렸는데도 보이는게 없다면
             if len(contours) == 0:
                 print("객체가 없습니다.")
-                if "LEFT" in direction:
-                    self.motion.turn()
+                if "LEFT" in self.direction:
+                    self.motion.turn(grab)
                 else:
-                    self.motion.turn(direct=MOTION["DIR"]["RIGHT"])
+                    self.motion.turn(grab, direct=MOTION["DIR"]["RIGHT"])
             else:
                 sorted_list = sorted(contours, key=lambda cc: len(cc))
                 x, y, w, h = cv2.boundingRect(sorted_list[-1])
@@ -229,64 +224,76 @@ class Robot:
                 print("area:", area)
                 if (width // 2) - 200 < Cx < 200 + (width // 2):
                     # 몸을 완전히 숙인다 발끝이 보이게 그리고 전진
-                    self.motion.head(view=MOTION["VIEW"]["DOWN10"])
-                    self.initwalking(angle)
+                    self.motion.head(view=MOTION["VIEW"]["DOWN18"])
+                    # 이제 걷는 함수를 호출한다
+                    if self.grabMode:  # 잡고 걷는 경우
+                        self.grakWalking(angle)
+                    else:  # 잡지 않고 걷는 경우
+                        self.initwalking(angle)
+
                     break
 
                 self.motion.init()
                 if Cx < (width // 2) - 200:  # 중심보다 왼쪽이면 -> 몸을 왼쪽으로 돌린다
-                    self.motion.turn()
+                    self.motion.turn(grab)
                     print("왼쪽으로 몸을 돌립니다.")
                 elif Cx > 200 + (width // 2):
-                    self.motion.turn(direct=MOTION["DIR"]["RIGHT"])
+                    self.motion.turn(grab, direct=MOTION["DIR"]["RIGHT"])
                     print("오른쪽으로 몸을 돌립니다.")
 
-    def initwalking(self, angle):
+    def initwalking(self, angle, grab):
         # 목각도와 걸음수 dic
         angle_walk = {"30": 1, "45": 4, "60": 8, "80": 14}
         # 걸음수를 담는 변수
         walkCount = angle_walk[angle]
+        walkCount = 100
         cnt = 0
-        walkCount = 20
         # 첫 걸음을 내딛을때 그린이 아니면 안보일때까지 옆걸음
-        while True:
+        while (True):
             obstacle_lst = []
             avoid = False
-            avoid_color = ""
-            screen_center = 0
-            for color in ["RED", "BLUE"]:
+            color_lst = ["RED", "BLUE"]
+            for color in color_lst:
                 img_color, img_mask = self.imageProcessor.getBinImage(color=color)
                 self.imageProcessor.debug(img_color)
                 contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
                                                        cv2.CHAIN_APPROX_SIMPLE)
-                screen_center = img_color.shape[1]
-                if len(contours) != 0:  # 장애물이 발견되면 (파란색, 빨간색) avoid 를 킨다
+
+                if len(contours) != 0:  # 장애물이 발견되면 (파란색, 빨간색)
                     print(color, " is traced!!!!")
                     obstacle_lst = sorted(contours, key=lambda cc: len(cc))
                     avoid = True
-                    avoid_color = color
+                    color_name = color
                     break
 
-            # 1.....장애물이 있는 경우
             if avoid:
                 x, y, w, h = cv2.boundingRect(obstacle_lst[-1])
                 while True:
-                    img_color, img_mask = self.imageProcessor.getBinImage(color=avoid_color)
+                    print(color_name, "의 물체를 피합니다 : ", y + h // 2)
+
+                    img_color, img_mask = self.imageProcessor.getBinImage(color=color_name)
                     contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
                                                            cv2.CHAIN_APPROX_SIMPLE)
-                    if len(contours) == 0:
-                        break
-                    else:
-                        obstacle_lst = sorted(contours, key=lambda cc: len(cc))
-                        x, y, w, h = cv2.boundingRect(obstacle_lst[-1])
-                        Cx = x + w // 2
-                        # 왼쪽으로 장애물이 있으면 오른쪽으로 걷기
-                        print(avoid_color, "의 물체를 피합니다 : ", x + w // 2)
-                        if 0 < Cx < screen_center:
-                            self.motion.move(direct=MOTION["DIR"]["RIGHT"])
-                        elif screen_center < Cx < 2*screen_center:
-                            self.motion.move()
-            # 2........장애물이 없는 경우
+                    if len(contours) == 0: break
+
+                    obstacle_lst = sorted(contours, key=lambda cc: len(cc))
+                    x, y, w, h = cv2.boundingRect(obstacle_lst[-1])
+                    cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
+                    self.imageProcessor.debug(img_color)
+                    if 20 < y + h // 2 < 430:
+
+                        if 0 < x + w // 2 < img_color.shape[1] // 2:  # 왼쪽으로 장애물이 있으면 오른쯕으로 걷기
+                            print("오른쪽")
+                            self.motion.move(direct=MOTION["DIR"]["RIGHT"], repeat=2)
+                        elif img_color.shape[1] // 2 < x + w // 2 < img_color.shape[1]:
+                            print("왼쪽")
+                            self.motion.move(repeat=2)
+                        elif x + w // 2 == img_color.shape[1] // 2:
+                            if self.direction == "LEFT":
+                                self.motion.move(repeat=2)
+                            else:
+                                self.motion.move(direct=MOTION["DIR"]["RIGHT"], repeat=2)
+
             else:
                 self.motion.walk()
                 img_color, img_mask = self.imageProcessor.getBinImage(color="GREEN")
@@ -300,23 +307,37 @@ class Robot:
                         img_color, img_mask = self.imageProcessor.getBinImage(color="GREEN")
                         contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
                                                                cv2.CHAIN_APPROX_SIMPLE)
+                        if len(contours) == 0: break
                         obstacle_lst = sorted(contours, key=lambda cc: len(cc))
                         x, y, w, h = cv2.boundingRect(obstacle_lst[-1])
                         Cx = x + w // 2
-                        if screen_center - 200 < Cx < screen_center + 200:  # 왼쪽으로 장애물이 있으면 오른쯕으로 걷기
+                        center = img_color.shape[1] // 2
+
+                        # 물건을 집기위해 중앙화 하기
+                        if center - 200 < Cx < center + 200:  # 왼쪽으로 장애물이 있으면 오른쯕으로 걷기
                             print("물건을 집습니다.")
+                            self.motion.walk(walk_signal=MOTION["WALK"]["BACK"])
                             self.motion.grab()
-                            self.checkCitizen()  # 물체를 탐색한다
+                            self.grabMode = True
+
+                            # 목적지를 찾아서 가는 함수
+                            self.checkDestination()
+
                             break
                             ############################## 이부분에  while을 놓치는 경우대비 계속잡기
-                        elif Cx > screen_center + 200:
+                        elif Cx > center + 200:
                             self.motion.move(direct=MOTION["DIR"]["RIGHT"])
-                        elif Cx < screen_center - 200:
+                        elif Cx < center - 200:
                             self.motion.move()
 
                 cnt += 1
 
-            if cnt == walkCount:
+            if cnt == walkCount - 1:
+                self.motion.init()
+                self.motion.head(view=MOTION["VIEW"]["DOWN30"], direction=MOTION["DIR"]["CENTER"])
+                # while :
+                self.motion.turn(repeat=12)
+                self.motion.walk()
                 break
 
     def debuggingMode(self, direction, angle):
@@ -327,13 +348,133 @@ class Robot:
             img = self.imageProcessor.getImage()
             self.imageProcessor.debug(img)
 
+    def checkDestination(self):
+        # 목각도를 꺾으면서 사진에 해당하는
+        head = ["DOWN80", "DOWN60", "DOWN45"]  # index = i
+        head_LR = ["LEFT45", "LEFT30", "CENTER", "RIGHT30", "RIGHT45"]  # index = j
 
-    # 물건을
-    def turnMode(self):
+        # 각도를 돌리면서 물체를 확인한다
+        for j in range(len(head_LR)):
+            store_color = ""
+            for i in range(len(head)):
+                # 목각도 움직이고 사진찍어서 분석
+                self.motion.head(view=MOTION["VIEW"][head[i]], direction=MOTION["DIR"][head_LR[j]])
+                print("!!!!!!!!!!방향!!!!!!!!", head_LR[j], head[i])
+                print("......")
+                result = self.imageProcessor.selectObject_many()  # 반환값 : ["RED", "BLUE", "GREEN"]
+                print("......")
+                print("......")
+
+                # 각 라인에 대해 분석한 결과를 저장
+                store_color += result  # 문자열 결과인 GGRGB 따위를 더해준다
+                # 각 라인에 대한 데이터를 저장
+                if len(result) != 0:
+                    self.total_result[head_LR[j]] = store_color  # {라인: RRGBRRG}
+                    angle = re.findall("\d+", head[i])
+                    self.possible.append((head_LR[j], angle[0]))
+        print("destination::", self.possible)
+        self.centralize("GRAB")  # 잡은 상태에서 해당 방향으로 몸을 돌린다
+
+    def turnMoving(self):
         self.motion.init()
         self.motion.turn(repeat=5)
         while True:
-            pass
+            img_color, img_mask = self.imageProcessor.getBinImage("GREEN")
+            contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
+                                                   cv2.CHAIN_APPROX_SIMPLE)
+            # 초록색이 보일때까지 몸을 돌린다
+            if len(contours) == 0:
+                self.motion.turn()
+            else:
+                self.checkCitizen()
+
+    # 물건을 집고 가는 모션
+    def grabWalking(self, angle):
+        # 목각도와 걸음수 dic
+        angle_walk = {"30": 1, "45": 4, "60": 8, "80": 14}
+        # 걸음수를 담는 변수
+        walkCount = angle_walk[angle]
+        walkCount = 100
+        cnt = 0
+        # 첫 걸음을 내딛을때 그린이 아니면 안보일때까지 옆걸음
+        while (True):
+            obstacle_lst = []
+            avoid = False
+            color_lst = ["RED", "BLUE"]
+            for color in color_lst:
+                img_color, img_mask = self.imageProcessor.getBinImage(color=color)
+                self.imageProcessor.debug(img_color)
+                contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
+                                                       cv2.CHAIN_APPROX_SIMPLE)
+
+                if len(contours) != 0:  # 장애물이 발견되면 (파란색, 빨간색)
+                    print(color, " is traced!!!!")
+                    obstacle_lst = sorted(contours, key=lambda cc: len(cc))
+                    avoid = True
+                    color_name = color
+                    break
+
+            # 1 ------- 장애물이 발견됐을 경우
+            if avoid:
+                x, y, w, h = cv2.boundingRect(obstacle_lst[-1])
+                while True:
+                    print(color_name, "의 물체를 피합니다 : ", y + h // 2)
+
+                    img_color, img_mask = self.imageProcessor.getBinImage(color=color_name)
+                    contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
+                                                           cv2.CHAIN_APPROX_SIMPLE)
+                    if len(contours) == 0: break
+
+                    obstacle_lst = sorted(contours, key=lambda cc: len(cc))
+                    x, y, w, h = cv2.boundingRect(obstacle_lst[-1])
+                    cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
+                    self.imageProcessor.debug(img_color)
+                    if 80 < y + h // 2 < 430:
+
+                        if 0 < x + w // 2 < img_color.shape[1] // 2:  # 왼쪽으로 장애물이 있으면 오른쯕으로 걷기
+                            print("오른쪽")
+                            self.motion.move(direct=MOTION["DIR"]["RIGHT"], repeat=2)
+                        elif img_color.shape[1] // 2 < x + w // 2 < img_color.shape[1]:
+                            print("왼쪽")
+                            self.motion.move(repeat=2)
+                        elif x + w // 2 == img_color.shape[1] // 2:
+                            if self.direction == "LEFT":
+                                self.motion.move(repeat=2)
+                            else:
+                                self.motion.move(direct=MOTION["DIR"]["RIGHT"], repeat=2)
+
+            # 2 --------- 장애물이 없는 경우
+            else:
+                self.motion.walk("GRAB")
+                img_color, img_mask = self.imageProcessor.getBinImage(color="GREEN")
+                contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
+                                                       cv2.CHAIN_APPROX_SIMPLE)
+
+                # 걷다가 초록색이 발견되면 멈춰서 몸을 돈다
+                if len(contours) != 0:
+                    while True:
+                        print("목적지를 탐색합니다: ")
+                        img_color, img_mask = self.imageProcessor.getBinImage(color="GREEN")
+                        contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
+                                                               cv2.CHAIN_APPROX_SIMPLE)
+                        obstacle_lst = sorted(contours, key=lambda cc: len(cc))
+                        x, y, w, h = cv2.boundingRect(obstacle_lst[-1])
+                        Cx = x + w // 2
+                        center = img_color.shape[1] // 2
+                        # 초록색 물체를 집기위해 센터로 조정하기
+                        if center - 200 < Cx < center + 200:  # 왼쪽으로 장애물이 있으면 오른쯕으로 걷기
+                            print("물건을 내려놓습니다.")
+                            self.motion.graboff()
+                            self.grabMode = False
+                            self.turnMoving()  # 다음 물체를 찾기위해 몸을 돌린다.
+                            break
+                            ############################## 이부분에  while을 놓치는 경우대비 계속잡기
+                        elif Cx > center + 200:
+                            self.motion.move(direct=MOTION["DIR"]["RIGHT"])
+                        elif Cx < center - 200:
+                            self.motion.move()
+
+                cnt += 1
 
 
 if __name__ == "__main__":
