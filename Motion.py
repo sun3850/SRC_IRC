@@ -22,7 +22,7 @@ MOTION = {
     },
     "GRAB": 31,
     "GRAB_OFF": 29,
-    "GRAB_TURN": {"LEFT": 43, "RIGHT": 2222}
+    "GRAB_TURN": {"RIGHT": 13, "LEFT": 14}
 }
 
 
