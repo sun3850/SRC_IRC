@@ -8,18 +8,22 @@ import time  # time 라이브러리
 ###################################
 
 CAM_ID = 0
-CODEC_AT_WINDOW = 'DIVX'
-CODEC_AT_UNIX = 'MJPG'
+W_View_size =  640  #320  #640
+#H_View_size = int(W_View_size / 1.777)
+H_View_size = 480
 
 cam = cv2.VideoCapture(CAM_ID)  # 카메라 생성
-fourcc = cv2.VideoWriter_fourcc(*CODEC_AT_UNIX) # 녹화기 생성
-out = cv2.VideoWriter('output.avi', fourcc, 30.0, (640,480))
+cam.set(3, W_View_size)
+cam.set(4, H_View_size)
 
-cap_height = int(cam.get(4))
-cap_width = int(cam.get(3))
+cx = W_View_size//2
+cy = H_View_size//2
+
+fourcc = cv2.VideoWriter_fourcc(*'MJPG') # 녹화기 생성
+out = cv2.VideoWriter('output.avi', fourcc, 30.0, (int(cam.get(3)),int(cam.get(4))))
+
 # 윈도우 생성 및 사이즈 변경
 cv2.namedWindow('CAM_Window')
-out = cv2.VideoWriter('output.avi', fourcc, 30.0, (cap_height,cap_width))
 
 ########### 추가 ##################
 prevTime = 0  # 이전 시간을 저장할 변수
@@ -49,13 +53,13 @@ while (cam.isOpened()):
         
             # 프레임 수를 문자열에 저장
             str = "FPS : %0.1f" % fps
-            frame = cv2.flip(frame, 1)
+            #frame = cv2.flip(frame, 1)
             out.write(frame)
             # 표시
             cv2.putText(frame, str, (0, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0))
-            cv2.line(frame, (cap_width // 2, 0), (cap_width // 2, cap_height), (0, 255, 0), 1)
-            cv2.line(frame, (0, cap_height // 2), (cap_width, cap_height // 2), (0, 255, 0), 1)
-            cv2.circle(frame, (cap_width//2, cap_height//2), 10, (0, 255, 0), -1)
+            cv2.line(frame, (cx, 0), (cx, H_View_size), (0, 255, 0), 1)
+            cv2.line(frame, (0, cy), (W_View_size, cy), (0, 255, 0), 1)
+            cv2.circle(frame, (cx, cy), 10, (0, 255, 0), -1)
             ###################################
             # 얻어온 프레임 녹화
             # 얻어온 이미지 윈도우에 표시
@@ -64,7 +68,7 @@ while (cam.isOpened()):
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
         else:
-            break
+            continue
 # 윈도우 종료
 cam.release()
 out.release()

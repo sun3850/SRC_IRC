@@ -342,7 +342,7 @@ if __name__ == '__main__':
         if args.get("video") and not grabbed:
             break
 
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2YUV)  # HSV => YUV
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)  # HSV => YUV
         mask = cv2.inRange(hsv, hsv_Lower, hsv_Upper)
 
         hsv_Lower = (h_min[now_color], s_min[now_color], v_min[now_color])
