@@ -430,9 +430,32 @@ class Robot:
         self.motion.init()
         targetAngle = "DOWN" + angle
         self.motion.head(view=MOTION["VIEW"][targetAngle], direction=MOTION["DIR"][direction])
+        color_lst =["RED", "BLUE","GREEN"]
         while True:
-            img = self.imageProcessor.getImage()
-            self.imageProcessor.debug(img)
+            for color in color_lst:
+                img_color, img_mask = self.imageProcessor.getBinImage(color=color)
+                contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
+                                                        cv2.CHAIN_APPROX_SIMPLE)
+            
+                if len(contours) == 0: break
+                obstacle_lst = sorted(contours, key=lambda cc: len(cc))
+                x, y, w, h = cv2.boundingRect(obstacle_lst[-1])
+                Cx = x + w // 2
+                Cy = y + h // 2
+                cv2.line(img_color,(x,y), (x,y),(255,0,0),1)
+                cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
+                area = cv2.contourArea(obstacle_lst[-1])
+
+                print("넓이={},높이={}=> (cx={}, cy={})".format(img_color.shape[1],img_color.shape[0], Cx, Cy), "면적은" area)
+                self.imageProcessor.debug(img_color)
+
+
+
+
+
+
+
+
 
     def checkDestination(self, final=None):
         # 목각도를 꺾으면서 사진에 해당하는
