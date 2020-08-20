@@ -403,7 +403,7 @@ class Robot:
 
             elif self.turn_direction == "LEFT":
                 self.motion.turn(grab=self.grabMode, grab_direction=MOTION["GRAB_TURN"]["RIGHT"],
-                                 repeat=turn_cnt + 8)
+                                 repeat=turn_cnt + 7)
                 print("0명 객체를 집고서 다시 턴한다", self.grabMode, "RIGTH")
         # 구한사람이 0명일때는 직진
         ##### 목적지를 탐색할때 못 발견하면 몸을 틀어서 확인한다 - 반대로 틀어야됨 #####
