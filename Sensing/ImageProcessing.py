@@ -84,6 +84,49 @@ class ImageProcessor:
             self.debug(img_mask)
         return img, img_mask
 
+    def getBinImage_two(self, color_lst, debug=False):  # 인자로 넘겨 받은 색상만 남기고 리턴
+        img = self.getImage()
+        img_hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+
+        ## ........ 첫번째 색상
+        lower1, lower2, lower3 = COLORS[color_lst[0]]["lower"]
+        upper1, upper2, upper3 = COLORS[color_lst[0]]["upper"]
+        img_mask1 = cv2.inRange(img_hsv, np.array(lower1), np.array(upper1))
+        img_mask2 = cv2.inRange(img_hsv, np.array(lower2), np.array(upper2))
+        img_mask3 = cv2.inRange(img_hsv, np.array(lower3), np.array(upper3))
+        temp = cv2.bitwise_or(img_mask1, img_mask2)
+        img_mask_A = cv2.bitwise_or(img_mask3, temp)
+        kernel = np.ones((11, 11), np.uint8)
+        img_mask_A = cv2.morphologyEx(img_mask_A, cv2.MORPH_OPEN, kernel)
+        img_mask_A = cv2.morphologyEx(img_mask_A, cv2.MORPH_CLOSE, kernel)
+
+
+        ## ........ 두번째 색상
+        lower1, lower2, lower3 = COLORS[color_lst[1]]["lower"]
+        upper1, upper2, upper3 = COLORS[color_lst[1]]["upper"]
+        img_mask1 = cv2.inRange(img_hsv, np.array(lower1), np.array(upper1))
+        img_mask2 = cv2.inRange(img_hsv, np.array(lower2), np.array(upper2))
+        img_mask3 = cv2.inRange(img_hsv, np.array(lower3), np.array(upper3))
+        temp = cv2.bitwise_or(img_mask1, img_mask2)
+        img_mask_B = cv2.bitwise_or(img_mask3, temp)
+        kernel = np.ones((11, 11), np.uint8)
+        img_mask_B = cv2.morphologyEx(img_mask_B, cv2.MORPH_OPEN, kernel)
+        img_mask_B = cv2.morphologyEx(img_mask_B, cv2.MORPH_CLOSE, kernel)
+
+
+        ## ...... 두 색상 모두 검출
+        img_mask = cv2.bitwise_or(img_mask_A, img_mask_B)
+
+
+        if (debug):
+            self.debug(img_mask)
+        return img, img_mask
+
+
+
+
+
+
     def updateImage(self, src):  # 카메라 쓰레드가 fresh 이미지를 계속해서 갱신해줌
         self.__src = src
 
@@ -247,7 +290,7 @@ class ImageProcessor:
     # 화면에서 흰색비율이 차지하는게 40%이하면 위험지역
     def checkDNGR_ZONE(self, color, debug=True):
 
-        dngr_ZONE = False
+        dngr_ZONE = None
 
         img_color, img_mask = self.getBinImage(color=color)
         # 등고선 따기 (화면에 다 안들어온 이미지는 등고선이 안그려질 수도...)
@@ -260,9 +303,17 @@ class ImageProcessor:
             area_rate = (area / full_area)
             x, y, w, h = cv2.boundingRect(sort_contours[-1])
             Cy = y + h // 2
+            Cx = x + w // 2
             print("area_rate: ", (area / full_area), "Cy:", Cy)
-            if int(area_rate) > 50 or Cy > 124:
-                dngr_ZONE = True
+            if int(area_rate) > 50: # 우선 맵 밖의 영역이 50% 이상이면 위험모드
+                if Cy > 124:
+                    dngr_ZONE = "FRONT"
+                if Cx < 300:
+                    dngr_ZONE = "SIDE_LEFT"
+                elif img_color.shape[1] - 300 < Cx:
+                    dngr_ZONE = "SIDE_RIGHT"
+            else:
+                dngr_ZONE = None
 
         return dngr_ZONE
 

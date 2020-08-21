@@ -8,3 +8,6 @@ if __name__ == "__main__":
     robot = Robot(record=True,filename=args.filename)
     robot.traceTarget()
     #robot.mean_tracking()
+    # 두개 같이 있어야됨
+    robot.checkCitizen()
+    robot.walking()
