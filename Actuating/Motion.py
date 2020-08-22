@@ -3,26 +3,24 @@ import time
 from threading import Thread
 
 MOTION = {
-    "SIGNAL": {"INIT": 32},
-    "MODE": {"WALK": 0, "MOVE": 19, "VIEW": 32, "TURN": 7},
+    "SIGNAL": {"INIT": 17},
+    "MODE": {"WALK": 0, "TURN": 7, "MOVE": 19, "VIEW": 31},
     # 머리 상하좌우 회전
-    "VIEW": {"DOWN80": 0, "DOWN60": 1, "DOWN45": 2, "DOWN35": 3, "DOWN30": 4, "DOWN10": 5, "DOWN18": 16},
+    "VIEW": {"DOWN": {"90": 0, "80": 1, "60": 2, "45": 3, "35": 4, "30": 5, "10": 6, "18": 17}},
     # 로봇 몸 전체 회전 10도/머리 좌우 회전
-    "DIR": {"LEFT": 0, "RIGHT": 1, "LEFT30": 6, "LEFT45": 7, "LEFT60": 8, "LEFT90": 9, "RIGHT30": 10,
-            "RIGHT45": 11, "RIGHT60": 12, "RIGHT90": 13, "CENTER": 21, "LEFT_GRAB": 31, "RIGHT_GRAB": 32},
+    "DIR": {"LEFT": {"DEFAULT": 0, "30": 7, "45": 8, "60": 9, "90": 10, "CENTER": 11},
+            "RIGHT": {"DEFAULT": 1, "CENTER": 11, "30": 13, "45": 14, "60": 15, "90": 16}},
     "SCOPE": {"NORMAL": 0, "SHORT": 9},
-    "SPEED": {"FAST": 0, "RUN": 1, "SLOW": 2},
+    "SPEED": {"FAST": 0, "RUN": 1, "SLOW": 2}, 
 
     "WALK": {
-        "SHORT": 0,
         "START": 9,
         "END": 400,
-        "BACK": 10,
-        "GRAB": 47
+        "BACK": 10
     },
-    "GRAB": 31,
-    "GRAB_OFF": 27,
-    "GRAB_TURN": {"RIGHT": 6, "LEFT": 7}
+    # 물건 집기, 놓기, 좌우 회전, 좌우 이동
+    "GRAB": {"DISTANCE": 5, "ON": 30, "OFF": 27, "WALK": 41, "TURN": {"RIGHT": 6, "LEFT": 7},
+             "MOVE": {"LEFT": 31, "RIGHT": 32}}
 }
 
 
@@ -34,7 +32,7 @@ class Motion:
         self.receiving_exit = 1
         self.threading_Time = 0.01
         self.lock = False
-        # self.distance = 99
+        self.distance = 0
         BPS = 4800  # 4800,9600,14400, 19200,28800, 57600, 115200
 
         # ---------local Serial Port : ttyS0 --------
@@ -73,14 +71,16 @@ class Motion:
                 # Rx, 수신
                 result = ser.read(1)
                 RX = ord(result)
+                self.distance = RX
                 if RX == 100:
-                    #print("motion end")
+                    print("motion end")
                     self.lock = False
-                #print("RX=" + str(RX))
+                print("RX=" + str(RX))
                 # -----  remocon 16 Code  Exit ------
                 if RX == 16:
                     self.receiving_exit = 0
                     break
+                return RX
 
     def init(self):
         if not self.lock:
@@ -89,77 +89,113 @@ class Motion:
                 continue
         pass
 
-    def walk(self, walk_signal=MOTION["WALK"]["START"], scope=MOTION["SCOPE"]["NORMAL"], speed=MOTION["SPEED"]["SLOW"]):
+    def walk(self, grab=None, walk_signal=MOTION["WALK"]["START"], scope=MOTION["SCOPE"]["NORMAL"], speed=MOTION["SPEED"]["SLOW"]):
         if not self.lock:
-            self.TX_data_py2(MOTION["MODE"]["WALK"] + walk_signal + speed + scope)
+            if grab is None:
+                self.TX_data_py2(MOTION["MODE"]["WALK"] + walk_signal + speed + scope)
+            elif grab is "GRAB":
+                self.TX_data_py2(MOTION["MODE"]["WALK"] + MOTION["GRAB"]["WALK"] + speed + scope)
             while self.getRx():  # Until true wait
                 continue
         pass
 
-    def head(self, view=MOTION["VIEW"]["DOWN80"], direction=MOTION["DIR"]["CENTER"]):
-        if not self.lock:
-            if direction == MOTION["DIR"]["CENTER"]:
-                self.TX_data_py2(direction)
-            else:
-                self.TX_data_py2(MOTION["MODE"]["VIEW"] + direction)
-            while self.getRx():
-                continue
+    def head(self, view=MOTION["VIEW"]["DOWN"]["90"], direction=MOTION["DIR"]["LEFT"]["CENTER"]):
         if not self.lock:
             self.TX_data_py2(MOTION["MODE"]["VIEW"] + view)
             while self.getRx():
                 continue
+
+        if not self.lock:
+            self.TX_data_py2(MOTION["MODE"]["VIEW"] + direction)
+            while self.getRx():
+                continue
         pass
 
-    def move(self, grab=None, grab_direction=MOTION["DIR"]["LEFT_GRAB"], scope=MOTION["SCOPE"]["NORMAL"],
-             direct=MOTION["DIR"]["LEFT"], repeat=1):
+    '''def move(self, grab=None, grab_direction=MOTION["GRAB"]["MOVE"]["LEFT"], scope=MOTION["SCOPE"]["NORMAL"],
+             direction=MOTION["DIR"]["LEFT"]["DEFAULT"], repeat=1):
         if not self.lock:
             if grab is None:
                 for _ in range(repeat):
-                    self.TX_data_py2(MOTION["MODE"]["MOVE"] + direct + scope)
+                    self.TX_data_py2(MOTION["MODE"]["MOVE"] + direction + scope)
             elif grab is "GRAB":
                 for _ in range(repeat):
                     self.TX_data_py2(MOTION["MODE"]["MOVE"] + grab_direction + scope)
             while self.getRx():
                 continue
+        pass'''
+
+    def move(self, grab=None, direction=None, scope=MOTION["SCOPE"]["NORMAL"], repeat=1):
+        if not self.lock:
+            if grab is None:
+                if direction is "LEFT":
+                    for _ in range(repeat):
+                        self.TX_data_py2(MOTION["MODE"]["MOVE"] + scope + MOTION["DIR"]["LEFT"]["DEFAULT"])
+                elif direction is "RIGHT":
+                    for _ in range(repeat):
+                        self.TX_data_py2(MOTION["MODE"]["MOVE"] + scope + MOTION["DIR"]["RIGHT"]["DEFAULT"])
+            elif grab is "GRAB":
+                if direction is "LEFT":
+                    for _ in range(repeat):
+                        self.TX_data_py2(MOTION["MODE"]["MOVE"] + scope + MOTION["GRAB"]["MOVE"]["LEFT"])
+                elif direction is "RIGHT":
+                    for _ in range(repeat):
+                        self.TX_data_py2(MOTION["MODE"]["MOVE"] + scope + MOTION["GRAB"]["MOVE"]["RIGHT"])
+            while self.getRx():
+                continue
         pass
 
-    def turn(self, grab=None, grab_direction=MOTION["GRAB_TURN"]["LEFT"], direct=MOTION["DIR"]["LEFT"], repeat=1):
+
+    '''def turn(self, grab=None, grab_direction=MOTION["GRAB"]["TURN"]["LEFT"],
+             direction=MOTION["DIR"]["LEFT"]["DEFAULT"], repeat=1):
         if not self.lock:
             if grab is None:
                 for _ in range(repeat):
-                    self.TX_data_py2(direct + MOTION["MODE"]["TURN"])
+                    self.TX_data_py2(direction + MOTION["MODE"]["TURN"])
             elif grab is "GRAB":
                 for _ in range(repeat):
                     self.TX_data_py2(grab_direction + MOTION["MODE"]["TURN"])
             while self.getRx():
                 continue
-        pass
-
-    def grab(self):
+        pass'''
+    
+    def turn(self, grab=None, direction=None, repeat=1):
         if not self.lock:
-            self.TX_data_py2(MOTION["GRAB"])
+            if grab is None:
+                if direction is "LEFT":
+                    for _ in range(repeat):
+                        self.TX_data_py2(MOTION["DIR"]["LEFT"]["DEFAULT"] + MOTION["MODE"]["TURN"])
+                elif direction is "RIGHT":
+                    for _ in range(repeat):
+                        self.TX_data_py2(MOTION["DIR"]["RIGHT"]["DEFAULT"] + MOTION["MODE"]["TURN"])
+            elif grab is "GRAB":
+                if direction is "LEFT":
+                    for _ in range(repeat):
+                        self.TX_data_py2(MOTION["MODE"]["TURN"] + MOTION["GRAB"]["TURN"]["LEFT"])
+                elif direction is "RIGHT":
+                    for _ in range(repeat):
+                        self.TX_data_py2(MOTION["MODE"]["TURN"] + MOTION["GRAB"]["TURN"]["RIGHT"])
             while self.getRx():
                 continue
         pass
 
-    def grab_off(self):
+    def grab(self, switch="ON"):
         if not self.lock:
-            self.TX_data_py2(MOTION["GRAB_OFF"])
+            self.TX_data_py2(MOTION["GRAB"][switch])
             while self.getRx():
                 continue
         pass
 
-
-# Tx를 보낸 후 응답을 받을 때 까지 Lock을 걸기 반대쪽에서 보낸 Rx가 유실 될 수도 있으니, 일정시간이 지나도 답이 안오면 재요청
+    def check_GRAB(self):
+        if not self.lock:
+            self.TX_data_py2(MOTION["GRAB"]["DISTANCE"])
+            while self.getRx():
+                continue
+        return self.distance
 
 
 if __name__ == '__main__':
     temp = Motion()
-    temp.init()
-    # i = 5
-    # while i > 0:
-    #    print(i)
-    #    temp.walk(speed=MOTION["SPEED"]["FAST"])
-    #    #temp.TX_data_py2(1)
-    #    i -= 1
+    x = temp.check_GRAB()
+    print("거리: ", x)
+    print("거리+10: ", x + 10)
     pass
