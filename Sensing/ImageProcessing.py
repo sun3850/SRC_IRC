@@ -306,19 +306,20 @@ class ImageProcessor:
             Cx = x + w // 2
             print("area_rate: ", (area / full_area), "Cy:", Cy)
             if int(area_rate) > 50: # 우선 맵 밖의 영역이 50% 이상이면 위험모드
-                if Cy > 124:
+                if Cx == img_color.shape[1]//2 and Cy > 124:
                     dngr_ZONE = "FRONT"
-                if Cx < 300:
-                    dngr_ZONE = "SIDE_LEFT"
-                elif img_color.shape[1] - 300 < Cx:
-                    dngr_ZONE = "SIDE_RIGHT"
+                if Cx < img_color.shape[1]//2:  # 위험영역이 왼쪽 -> 오른쪽으로
+                    dngr_ZONE = "RIGHT"
+                elif img_color.shape[1]//2 < Cx:  # 위험영역이 오른쪽 -> 왼쪽으로
+                    dngr_ZONE = "LEFT"
             else:
                 dngr_ZONE = None
 
         return dngr_ZONE
 
-    def colorDetected(self, color, debug=True):
 
+    # 특정 색상의 객체가 존재하는지 확인하는 함수
+    def colorDetected(self, color, debug=True):
         detected = False
         img_color, img_mask = self.getBinImage(color=color)
         # 등고선 따기 (화면에 다 안들어온 이미지는 등고선이 안그려질 수도...)
@@ -327,11 +328,41 @@ class ImageProcessor:
         if contours:
             x, y, w, h = cv2.boundingRect(contours[0])
             cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
-        if contours:
             detected = True
         if debug:
             self.debug(img_color)
         return detected
+        # 특정 색상의 객체가 존재하는지 확인하는 함수
+
+    def colorDetected_Center(self, color, debug=True):
+        detected = False
+        Cx = 0
+        Cy = 0
+        img_color, img_mask = self.getBinImage(color=color)
+        # 등고선 따기 (화면에 다 안들어온 이미지는 등고선이 안그려질 수도...)
+        contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
+                                               cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            x, y, w, h = cv2.boundingRect(contours[0])
+            Cx = x + w // 2
+            Cy = y + h // 2
+            cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
+            detected = True
+        if debug:
+            self.debug(img_color)
+        return detected, Cx, Cy
+
+    # 특정 색상의 객체의 면적을 도출하는 함수
+    def colorDetected_Area(self, color):
+        area = 0
+        img_color, img_mask = self.getBinImage(color=color)
+        # 등고선 따기 (화면에 다 안들어온 이미지는 등고선이 안그려질 수도...)
+        contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
+                                               cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            area = cv2.contourArea(contours[0])
+        return area
+
 
 
 if __name__ == "__main__":
