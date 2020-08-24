@@ -98,10 +98,9 @@ class Robot:
             self.possible = sorted(self.possible, key=lambda x: x[1])
 
         self.centralize()  # 해당 방향으로 몸을 돌린다
-        self.walkCount = self.angle_walk[angle]
 
 
-
+    # 몸을 중심으로 맞춰서 객체 집을때까지만 직진만 하도록한다
     def centralize(self, direction=None, angle=None, debug=True):
         if direction is not None and angle is not None:
             downAngle = "DOWN" + angle
@@ -116,26 +115,21 @@ class Robot:
             print(self.direction)
 
         # 걸음수를 담는 변수
-        self.walkCount = self.angle_walk[angle]
+        self.location.walkCount = self.location.angle_To_Distance(angle=angle)
 
         # 몸 방향 돌리기 :물건을 집고/ 안집고
         if self.grabMode == "GRAB":  # 1...............물건을 집은 상태에서 목적지로 조정하기
-            if "LEFT" in self.direction:
-                self.motion.turn(grab=self.grabMode)
-            elif "RIGHT" in self.direction:
-                self.motion.turn(grab=self.grabMode, grab_direction=MOTION["GRAB_TURN"]["RIGHT"],
-                                 direct=MOTION["DIR"]["RIGHT"])
+            self.motion.turn(grab=self.grabMode, direction=self.direction)
             print("centralize/ 집은 상태에서 :", self.direction, "쪽으로 몸을 turn")
         else:  # 2...............물건을 집지 않은 상태에서는 좌우로 이동만
-            if "LEFT" in self.direction:
-                self.motion.move(grab=self.grabMode, repeat=3)
-            elif "RIGHT" in self.direction:
-                self.motion.move(grab_direction=MOTION["DIR"]["RIGHT_GRAB"], repeat=3)
+            self.motion.move(grab=self.grabMode, direction=self.direction, repeat=3)
             print("centralize/ 안집은 상태에서 :", self.direction, "쪽으로 몸을 turn")
 
         # 목을 완전히 숙여 걸을 준비 완료
         self.motion.head(view=MOTION["VIEW"]["DOWN18"])
-        # self.walking(angle=angle, grab=None)
+
+
+
 
     def walking(self, angle, grab=None):
         cnt = 0
@@ -154,7 +148,8 @@ class Robot:
 
                 # 2......... 위험영역을 벗어나면 다시 목적지를 탐색
                 if self.grabMode:  # 물건을 잡은 상태이면 목적지를 탐색
-                    pass  # walkCount 다시 update!!
+                    self.Find_Detail_DSTN()  # walkCount 다시 update!!
+                    pass
                 else:  # 물건을 들고있지 않으면 타겟을 다시 탐색
                     pass
 
@@ -197,7 +192,7 @@ class Robot:
                 if check_obj:  # 초록색이 발견되면 중심화 시키기
                     self.greenCentral()
                     if self.grabMode == "GRAB":  # 물건을 집은 상태에서는 목적지니까 두는 모션을
-                        print("물건을 내려놓습니다.")
+                        print("물건을 내려놓습니다111111.")
                         self.motion.walk(grab=self.grabMode)
                         self.motion.grab(switch="OFF")
                         self.citizen += 1
@@ -221,17 +216,17 @@ class Robot:
                                 self.motion.walk(scope=MOTION["SCOPE"]["SHORT"])
                         # 2..........방향을 다시 설정하고 목적지를 탐색한다
                         self.Foward_To_DSTN()
-                        self.Find_Detail_DSTN()
                         # 3..........목적지까지의 거리로 update하기
+                        self.Find_Detail_DSTN()
 
                 else:  # 초록색이 발견되지 않으면 우선 옆에 있는지 확인하고 아닌 경우는 앞으로 전진
                     self.motion.walk(grab=self.grabMode)
                     cnt += 1
 
-                    # 측정된 거리에 도달하면 사이드에 객체가 있는지 확인한다.
+                    # 2-1......측정된 거리에 도달하면 사이드에 객체가 있는지 확인한다.
                     if cnt == self.walkCount and self.grabMode is None:
-                        # 1.....오른쪽, 왼쪽 확인해서 물체있나 확인
-                        target_SIDE = self.check_side_Target()
+                        # 1-1.....오른쪽, 왼쪽 확인해서 물체있나 확인
+                        target_SIDE = self.check_Side_Target()
                         if target_SIDE:
                             # 2......객체를 발견하면 고개를 내리고 초록색이 있는 쪽으로 다가가기
                             self.motion.head(view=MOTION["VIEW"]["DOWN30"], direction=MOTION["DIR"]["CENTER"])
@@ -241,16 +236,35 @@ class Robot:
                                 add_turn += 1
                                 self.motion.turn(direct=target_SIDE)
                                 check_obj = self.imageProcessor.colorDetected("GREEN")
-                                if check_obj:  # 초록색을 발견하면 중앙에 들고 집는 것까지
-                                    self.greenCentral()  # 이제 물건을 든 상태임
-                                    break
+                                if check_obj: break
 
-                            # 4......물건을 집고 몸을 목적지방향으로 튼다
+                            # 4...... 객체를 향해서 몸을 돌린 상태에서 바닥을 보고 중앙에 들고 집는 것까지
+                            self.motion.head(view=MOTION["VIEW"]["DOWN18"], direction=MOTION["DIR"]["CENTER"])
+                            self.greenCentral()  # 이제 물건을 든 상태임
+
+                            # 5......물건을 집고 몸을 목적지방향으로 튼다
                             self.Foward_To_DSTN(turn_cnt=add_turn)  ## 만약 목을 270도로 돌릴 수 있으면 굳이 몸 돌릴 필요없음 물건을 들고 어느정도 목적지 방향으로 몸틀고
                             self.Find_Detail_DSTN()  # 이제 거기서 head_LR로 목적지 탐색 및 몸까지 다 돌림
+                        # 1-2..... 발견되는 물체가 없으면
                         else:
                             self.Find_Next_Target()
+                    # 2-2.......측정된 거리에 도달하면 목적지로 확인한다.
+                    elif cnt == self.walkCount and self.grabMode:
+                        print("물건을 내려놓습니다222222.")
+                        check_obj = self.imageProcessor.colorDetected("GREEN")
+                        if check_obj is None: # 앞에서 물건이 안보이는 경우 목적지 다시 탐색
+                            self.Find_Detail_DSTN()
+                            while check_obj is None:
+                                self.motion.walk(grab=self.grabMode)
+                                check_obj = self.imageProcessor.colorDetected("GREEN")
 
+                        self.greenCentral()
+                        self.motion.walk(grab=self.grabMode)
+                        self.motion.grab(switch="OFF")
+                        self.citizen += 1
+                        self.target_SIDE = None
+                        self.grabMode = None
+                        self.Find_Next_Target()
 
 
 
@@ -318,7 +332,7 @@ class Robot:
 
     def Find_Detail_DSTN(self):
 
-        # 0.....이제 남은 거리를 토대로 목각도를 계산해서 and 돌아갈거리 설정
+        # 0.....이제 남은 거리를 토대로 목각도를 계산해서 and 돌아갈거리 설정 -> 걸음수 update!
         if self.citizen == 0:  # citizen=0, 목적지거리-객체거리만큼만, citizen>=1 자신이 걸어왔던 거리만큼 돌아가면됨
             self.location.walkCount = 14 - self.location.walkCount
         angle = self.location.distance_To_angle(self.location.walkCount)
