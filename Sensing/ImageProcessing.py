@@ -44,9 +44,13 @@ COLORS[""] = {
     "lower": [[], [], []],
     "upper": [[], [], []]
 }
-COLORS["WHITE"] = {
+COLORS["WHITE2"] = {
     "lower": [[0, 12, 61], [0, 12, 61], [0, 12, 61]],
     "upper": [[16, 54, 145], [16, 54, 145], [16, 54, 145]]
+}
+COLORS["WHITE"] = {
+    "lower": [[124, 20, 104], [124, 20, 104], [124, 20, 104]],
+    "upper": [[170, 39, 135], [170, 39, 135], [170, 39, 135]]
 }
 
 
@@ -100,7 +104,6 @@ class ImageProcessor:
         img_mask_A = cv2.morphologyEx(img_mask_A, cv2.MORPH_OPEN, kernel)
         img_mask_A = cv2.morphologyEx(img_mask_A, cv2.MORPH_CLOSE, kernel)
 
-
         ## ........ 두번째 색상
         lower1, lower2, lower3 = COLORS[color_lst[1]]["lower"]
         upper1, upper2, upper3 = COLORS[color_lst[1]]["upper"]
@@ -113,19 +116,12 @@ class ImageProcessor:
         img_mask_B = cv2.morphologyEx(img_mask_B, cv2.MORPH_OPEN, kernel)
         img_mask_B = cv2.morphologyEx(img_mask_B, cv2.MORPH_CLOSE, kernel)
 
-
         ## ...... 두 색상 모두 검출
         img_mask = cv2.bitwise_or(img_mask_A, img_mask_B)
-
 
         if (debug):
             self.debug(img_mask)
         return img, img_mask
-
-
-
-
-
 
     def updateImage(self, src):  # 카메라 쓰레드가 fresh 이미지를 계속해서 갱신해줌
         self.__src = src
@@ -302,21 +298,49 @@ class ImageProcessor:
             full_area = 306081
             area_rate = (area / full_area)
             x, y, w, h = cv2.boundingRect(sort_contours[-1])
+            cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
+            self.debug(img_color)
             Cy = y + h // 2
             Cx = x + w // 2
-            print("area_rate: ", (area / full_area), "Cy:", Cy)
-            if int(area_rate) > 50: # 우선 맵 밖의 영역이 50% 이상이면 위험모드
-                if Cx == img_color.shape[1]//2 and Cy > 124:
+
+            if (area_rate) > 0.05:  # 우선 맵 밖의 영역이 50% 이상이면 위험모드
+                print("area_rate: ", (area / full_area), "Cy:", Cy, "Cx:", Cx)
+                if Cy > 50:
                     dngr_ZONE = "FRONT"
-                if Cx < img_color.shape[1]//2:  # 위험영역이 왼쪽 -> 오른쪽으로
+                if Cx < 220:  # 위험영역이 왼쪽 -> 오른쪽으로
                     dngr_ZONE = "RIGHT"
-                elif img_color.shape[1]//2 < Cx:  # 위험영역이 오른쪽 -> 왼쪽으로
+                elif 480 < Cx:  # 위험영역이 오른쪽 -> 왼쪽으로
                     dngr_ZONE = "LEFT"
             else:
                 dngr_ZONE = None
 
         return dngr_ZONE
 
+    def checkDSTN_OUT(self, color, debug=True):
+
+        dngr_ZONE = None
+
+        img_color, img_mask = self.getBinImage(color=color)
+        # 등고선 따기 (화면에 다 안들어온 이미지는 등고선이 안그려질 수도...)
+        contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
+                                               cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            sort_contours = sorted(contours, key=lambda cc: len(cc))
+            area = cv2.contourArea(sort_contours[-1])
+            full_area = 306081
+            area_rate = (area / full_area)
+            x, y, w, h = cv2.boundingRect(sort_contours[-1])
+            cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
+            self.debug(img_color)
+            Cy = y + h // 2
+            Cx = x + w // 2
+            print(area_rate)
+            if (area_rate) < 0.2:  # 우선 맵 밖의 영역이 50% 이상이면 위험모드
+                dngr_ZONE = "oh"
+            else:
+                dngr_ZONE = None
+
+        return dngr_ZONE
 
     # 특정 색상의 객체가 존재하는지 확인하는 함수
     def colorDetected(self, color, debug=True):
@@ -361,8 +385,7 @@ class ImageProcessor:
                                                cv2.CHAIN_APPROX_SIMPLE)
         if contours:
             area = cv2.contourArea(contours[0])
-        return area
-
+        return img_color, area
 
 
 if __name__ == "__main__":

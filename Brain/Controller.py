@@ -9,25 +9,28 @@ import time
 baseline = (bx, by) = (320, 420)
 footline = (fx, fy) = (320, 420)
 
+
 class Location:
     def __init__(self):
         self.direction = ""
         self.grabMode = None
         self.citizen = 0
         self.target_SIDE = None
-        self.walkCount = 0 # 남은 걸음수 담아놓기
+        self.walkCount = 0  # 남은 걸음수 담아놓기
 
     def angle_To_Distance(self, angle):
-        angle_walk = {"30": 1, "45": 4, "60": 8, "80": 14, "90": 14}
-        walkCount = angle_walk[angle]
-        return walkCount
+        angle_walk = {"30": 1, "45": 5, "60": 7, "80": 14, "90": 14}
+        self.walkCount = angle_walk[angle]
+        return self.walkCount
 
-    def distance_To_angle(self, distance): # 남은 걸음수를 이용해서 각도를 조정한다
-        walk_to_angle = {1:"30", 4:"45", 8:"60", 14:"80", 15:"90"}
+    def distance_To_angle(self, distance):  # 남은 걸음수를 이용해서 각도를 조정한다
+        if distance == 13:
+            distance = 14
+        elif distance == 6:
+            distance = 7
+        walk_to_angle = {1: "30", 5: "45", 7: "60", 14: "80", 15: "90"}
         angle = walk_to_angle[distance]
         return angle  # 목각도를 도출
-
-
 
 
 class Robot:
@@ -41,11 +44,13 @@ class Robot:
         self.motion.init()
         self.total_result = {}
         self.possible = []  # 가능한 방향 선택하기  (left45, 30)
-        self.direction = ""
+        self.direction = "LEFT"
         self.grabMode = None
         self.citizen = 0
-        self.avoid_drction = None  # 장애물을 피했던 방향
-
+        self.avoid_drction = "LEFT"  # 장애물을 피했던 방향
+        self.target_SIDE = None
+        img, img_mask = self.imageProcessor.getBinImage("GREEN")
+        self.width = img.shape[1]
 
     ###### 현재 블록의 상태 확인################
     def checkCitizen(self, hDirection=None):
@@ -55,7 +60,7 @@ class Robot:
         head_LR = ["LEFT45", "LEFT30", "CENTER", "RIGHT30", "RIGHT45"]  # index = j
         if hDirection:
             store_color = ""
-            for i in range(0, len(head)-1):  # DOWN30는 버리기! 왜냐면 목적지를 객체로 인식해버릴 수 있음
+            for i in range(0, len(head) - 1):  # DOWN30는 버리기! 왜냐면 목적지를 객체로 인식해버릴 수 있음
                 # 목각도 움직이고 사진찍어서 분석
                 self.motion.head(view=MOTION["VIEW"][head[i]], direction=MOTION["DIR"][hDirection])
                 print("!!!!!!!!!!다음 객체 찾기모드!!!!!!!!!", hDirection, head[i])
@@ -97,20 +102,19 @@ class Robot:
             print("result:::", self.possible)
             self.possible = sorted(self.possible, key=lambda x: x[1])
 
-        self.centralize()  # 해당 방향으로 몸을 돌린다
-
+    # self.centralize()  # 해당 방향으로 몸을 돌린다
 
     # 몸을 중심으로 맞춰서 객체 집을때까지만 직진만 하도록한다
     def centralize(self, direction=None, angle=None, debug=True):
         if direction is not None and angle is not None:
             downAngle = "DOWN" + angle
-            self.motion.head(view=MOTION["VIEW"][downAngle])
+            # self.motion.head(view=MOTION["VIEW"][downAngle])
             self.direction = direction
 
         if len(self.possible) != 0:
             print(self.possible)
             print("몸을 돌릴 방향", self.possible[0])
-            self.direction = self.possible[0][0]
+            self.direction = "LEFT" if "LEFT" in self.possible[0][0] else "RIGHT"
             angle = self.possible[0][1]
             print(self.direction)
 
@@ -119,80 +123,97 @@ class Robot:
 
         # 몸 방향 돌리기 :물건을 집고/ 안집고
         if self.grabMode == "GRAB":  # 1...............물건을 집은 상태에서 목적지로 조정하기
-            self.motion.turn(grab=self.grabMode, direction=self.direction)
+            # self.motion.turn(grab=self.grabMode, direction=self.direction)
             print("centralize/ 집은 상태에서 :", self.direction, "쪽으로 몸을 turn")
         else:  # 2...............물건을 집지 않은 상태에서는 좌우로 이동만
-            self.motion.move(grab=self.grabMode, direction=self.direction, repeat=3)
+            # self.motion.move(grab=self.grabMode, direction=self.direction, repeat=3)
             print("centralize/ 안집은 상태에서 :", self.direction, "쪽으로 몸을 turn")
 
         # 목을 완전히 숙여 걸을 준비 완료
-        self.motion.head(view=MOTION["VIEW"]["DOWN18"])
+        self.motion.head(view=MOTION["VIEW"]["DOWN18"], direction=MOTION["DIR"]["CENTER"])
 
-
-
-
-    def walking(self, angle, grab=None):
+    def walking(self, grab=None):
+        self.motion.head(view=MOTION["VIEW"]["DOWN18"], direction=MOTION["DIR"]["CENTER"])
         cnt = 0
+        flag = 0
         while True:
 
             # <1>.....맵 밖으로 떨어지는지 확인하기
-            danger = self.imageProcessor.colorDetected("WHITE")
+            danger = self.imageProcessor.checkDNGR_ZONE("WHITE")
             if danger:
+                print("________맵 밖입니__________")
+                store_move = danger
+
                 # 1......... 위험영역 피하기!
                 while danger:
                     if danger == "FRONT":  # 맵 밖의 영역이 시야의 상단에 위치하면 몸을 turn해서 조정
-                        self.motion.turn(grab=self.grabMode, direction=self.avoid_drction)
+                        direction = "RIGHT" if "LEFT" in self.avoid_drction else "LEFT"
+                        self.motion.turn(grab=self.grabMode, direction=direction)
+                        print("ffffffffff", direction)
                     else:  # danger = "RIGHT"/"LEFT" 맵 밖의 영역이 양 옆에 있는거면 좌우로 움직이기
-                        self.motion.move(grab=self.grabMode, direct=danger, repeat=2)
-                    danger = self.imageProcessor.colorDetected("WHITE")
+                        self.motion.move(grab=self.grabMode, direction=danger, repeat=2)
+                        print("eeeeeeeeeeeeeeeeeeeeeee", danger)
+                    danger = self.imageProcessor.checkDNGR_ZONE("WHITE")
 
                 # 2......... 위험영역을 벗어나면 다시 목적지를 탐색
                 if self.grabMode:  # 물건을 잡은 상태이면 목적지를 탐색
                     self.Find_Detail_DSTN()  # walkCount 다시 update!!
                     pass
                 else:  # 물건을 들고있지 않으면 타겟을 다시 탐색
-                    pass
-
+                    img_color, img_mask = self.imageProcessor.getBinImage_two(color_lst=["RED", "BLUE"])
+                    obstacle_contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
+                                                                    cv2.CHAIN_APPROX_SIMPLE)
+                    while obstacle_contours:
+                        print("dnagerMode!!!!", store_move)
+                        if obstacle_contours is None:
+                            break
+                        self.motion.move(grab=self.grabMode, direction=store_move, repeat=3)
+                        img_color, img_mask = self.imageProcessor.getBinImage_two(color_lst=["RED", "BLUE"])
+                        obstacle_contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
+                                                                        cv2.CHAIN_APPROX_SIMPLE)
 
             # <2>.......장애물 확인하기 - 장애물이 발견되면 (파란색, 빨간색)
             img_color, img_mask = self.imageProcessor.getBinImage_two(color_lst=["RED", "BLUE"])
             self.imageProcessor.debug(img_color)
             obstacle_contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
-                                                   cv2.CHAIN_APPROX_SIMPLE)
-
+                                                            cv2.CHAIN_APPROX_SIMPLE)
             ## .......... 장애물 발견하면 피하기  #여기서 맵 밖인지도 확인해야됨
             if obstacle_contours:
-                print("Obstacle is traced!!!!")
                 obstacle_lst = sorted(obstacle_contours, key=lambda cc: len(cc))
                 x, y, w, h = cv2.boundingRect(obstacle_lst[-1])
                 Cx = x + w // 2
                 Cy = y + h // 2
                 cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
+                self.imageProcessor.debug(img_color)
+
                 print("장애물의 중심점 위치 : Cx = {}, Cy = {}".format(Cx, Cy))
 
                 if 130 < Cy < 430 and 20 < Cx < 600:
-                    print("____장애물 피하기", self.avoid_drction, "쪽으로 피합니다_______")
-                    if 0 < Cx < self.cam.width // 2:  # 왼쪽으로 장애물이 있으면 오른쯕으로 걷기
-                        self.motion.move(grab=self.grabMode, direction="RIGHT", repeat=3)
+                    if 0 < Cx < 320:  # 왼쪽으로 장애물이 있으면 오른쯕으로 걷기
+                        self.motion.move(grab=self.grabMode, direction="RIGHT", repeat=2)
                         self.avoid_drction = "RIGHT"
-                    elif self.cam.width// 2 < Cx < self.cam.width:
-                        self.motion.move(grab=self.grabMode, direction="LEFT", repeat=3)
+                    elif 320 < Cx < 640:
+                        self.motion.move(grab=self.grabMode, direction="LEFT", repeat=2)
                         self.avoid_drction = "LEFT"
-                    elif Cx == self.cam.width// 2:
-                        self.motion.move(grab=self.grabMode, direction=self.direction, repeat=3)
+                    elif Cx == 320:
+                        if self.direction == "CENTER": self.direction = "LEFT"
+                        self.motion.move(grab=self.grabMode, direction=self.direction, repeat=2)
                         self.avoid_drction = self.direction
-
+                    print("____장애물 피하기", self.avoid_drction, "쪽으로 피합니다_______")
+                    flag = 1
                 else:  # 아직은 피하기 이른 경우 짧은 전진
                     self.motion.walk(grab=self.grabMode, scope=MOTION["SCOPE"]["SHORT"])
 
-
             ## ........피할 대상이 없는 경우는 걷다가 초록색 발견 여부 확인
             else:
-                check_obj = self.imageProcessor.colorDetected("GREEN")
-                if check_obj:  # 초록색이 발견되면 중심화 시키기
+                check_obj, Cx, Cy = self.imageProcessor.colorDetected_Center("GREEN")
+                if check_obj and 200 < Cy < 430:  # 초록색이 발견되면 중심화 시키기
+                    print("_________________green!!!!!!!!____________", Cy)
                     self.greenCentral()
                     if self.grabMode == "GRAB":  # 물건을 집은 상태에서는 목적지니까 두는 모션을
                         print("물건을 내려놓습니다111111.")
+                        self.motion.walk(grab=self.grabMode)
+                        self.motion.walk(grab=self.grabMode)
                         self.motion.walk(grab=self.grabMode)
                         self.motion.grab(switch="OFF")
                         self.citizen += 1
@@ -200,112 +221,79 @@ class Robot:
                         self.grabMode = None
                         self.Find_Next_Target()
                     else:  # 물건을 잡지 않은 상태에서는 물건을 잡는 모션을
-                        print("물건을 집습니다.")
-                        # 1..........물건을 집고
-                        while True:
-                            check_obj, Cx, Cy = self.imageProcessor.colorDetected_Center("GREEN")
-                            if Cy > 250:  # 여기서 집었을때의 조건을 다시 주기
-                                self.motion.grab()
-                                if self.motion.check_GRAB() >= 110:
-                                    self.grabMode = "GRAB"
-                                    break
-                                else:
-                                    self.motion.grab(switch="OFF")
-                                    self.motion.walk(scope=MOTION["SCOPE"]["SHORT"])
-                            else:
-                                self.motion.walk(scope=MOTION["SCOPE"]["SHORT"])
-                        # 2..........방향을 다시 설정하고 목적지를 탐색한다
-                        self.Foward_To_DSTN()
-                        # 3..........목적지까지의 거리로 update하기
-                        self.Find_Detail_DSTN()
+                        if self.location.walkCount - 2 < cnt <= self.location.walkCount + 2:
+                            self.grab_forward()
+                            self.Forward_To_DSTN(0)  ## 만약 목을 270도로 돌릴 수 있으면 굳이 몸 돌릴 필요없음 물건을 들고 어느정도 목적지 방향으로 몸틀고
+                            self.Find_Detail_DSTN()  # 이제 거기서 head_LR로 목적지 탐색 및 몸까지 다 돌림
+
 
                 else:  # 초록색이 발견되지 않으면 우선 옆에 있는지 확인하고 아닌 경우는 앞으로 전진
                     self.motion.walk(grab=self.grabMode)
                     cnt += 1
+                    print("cnt", cnt)
 
                     # 2-1......측정된 거리에 도달하면 사이드에 객체가 있는지 확인한다.
-                    if cnt == self.walkCount and self.grabMode is None:
+                    if cnt == self.location.walkCount - 1 and self.grabMode is None:
                         # 1-1.....오른쪽, 왼쪽 확인해서 물체있나 확인
                         target_SIDE = self.check_Side_Target()
                         if target_SIDE:
                             # 2......객체를 발견하면 고개를 내리고 초록색이 있는 쪽으로 다가가기
                             self.motion.head(view=MOTION["VIEW"]["DOWN30"], direction=MOTION["DIR"]["CENTER"])
+                            # 2......
+                            self.motion.turn(direction=target_SIDE, repeat=5)
+
                             # 3......발견할때까지 몸돌리기 - add_turn 횟수 센다
                             add_turn = 0  # 추가로 턴한 횟수
                             while True:
                                 add_turn += 1
-                                self.motion.turn(direct=target_SIDE)
+                                self.motion.turn(direction=target_SIDE)
                                 check_obj = self.imageProcessor.colorDetected("GREEN")
                                 if check_obj: break
 
                             # 4...... 객체를 향해서 몸을 돌린 상태에서 바닥을 보고 중앙에 들고 집는 것까지
                             self.motion.head(view=MOTION["VIEW"]["DOWN18"], direction=MOTION["DIR"]["CENTER"])
                             self.greenCentral()  # 이제 물건을 든 상태임
-
+                            self.grab_forward()
+                            print("ddddd", self.location.walkCount)
                             # 5......물건을 집고 몸을 목적지방향으로 튼다
-                            self.Foward_To_DSTN(turn_cnt=add_turn)  ## 만약 목을 270도로 돌릴 수 있으면 굳이 몸 돌릴 필요없음 물건을 들고 어느정도 목적지 방향으로 몸틀고
+                            self.Forward_To_DSTN(
+                                turn_cnt=add_turn)  ## 만약 목을 270도로 돌릴 수 있으면 굳이 몸 돌릴 필요없음 물건을 들고 어느정도 목적지 방향으로 몸틀고
                             self.Find_Detail_DSTN()  # 이제 거기서 head_LR로 목적지 탐색 및 몸까지 다 돌림
                         # 1-2..... 발견되는 물체가 없으면
                         else:
                             self.Find_Next_Target()
-                    # 2-2.......측정된 거리에 도달하면 목적지로 확인한다.
-                    elif cnt == self.walkCount and self.grabMode:
-                        print("물건을 내려놓습니다222222.")
-                        check_obj = self.imageProcessor.colorDetected("GREEN")
-                        if check_obj is None: # 앞에서 물건이 안보이는 경우 목적지 다시 탐색
-                            self.Find_Detail_DSTN()
-                            while check_obj is None:
-                                self.motion.walk(grab=self.grabMode)
-                                check_obj = self.imageProcessor.colorDetected("GREEN")
-
-                        self.greenCentral()
-                        self.motion.walk(grab=self.grabMode)
-                        self.motion.grab(switch="OFF")
-                        self.citizen += 1
-                        self.target_SIDE = None
-                        self.grabMode = None
-                        self.Find_Next_Target()
-
-
-
 
             ## 세부 걸음 조정1...........장애물 다 피하고 혹시 몰라 살짝이동
-            if self.avoid_drction:
+            if self.avoid_drction and flag == 1:
                 print("self.avoid_direction : !!!!!!장애물 다 피하고 혹시 몰라 살짝이동!!!!!")
-                if self.grabMode == "GRAB":  ### 잡았을때 조금만 걷는거!
-                    if self.avoid_drction == "LEFT":
-                        self.motion.move(grab=self.grabMode, scope=MOTION["SCOPE"]["SHORT"])
-                    elif self.avoid_drction == "RIGHT":
-                        self.motion.move(grab=self.grabMode, grab_direction=MOTION["DIR"]["RIGHT_GRAB"],
-                                         scope=MOTION["SCOPE"]["SHORT"])
-                else:
-                    if self.avoid_drction == "LEFT":
-                        self.motion.move(scope=MOTION["SCOPE"]["SHORT"])
-                    elif self.avoid_drction == "RIGHT":
-                        self.motion.move(scope=MOTION["SCOPE"]["SHORT"], direct=MOTION["DIR"]["RIGHT"])
-                self.avoid_drction = None
+                self.motion.move(grab=self.grabMode, direction=self.avoid_drction)
+                flag = 0
 
-
-    def greenCentral(self):
-        print("_______________Centralize GREEN!!_______________")
+    def greenCentral(self, hold=None):
         while True:
             check_obj, Cx, Cy = self.imageProcessor.colorDetected_Center("GREEN")
-            if check_obj:  # 초록색 물체가 발견되면하는 것
-                center_X = self.cam.width // 2
+            print("Cy:", Cy)
+            if check_obj and Cy > 180:  # 초록색 물체가 발견되면하는 것
+                print("_______________Centralize GREEN!!_______________")
+                center_X = self.width // 2  # 320
                 # 초록색을 중앙화 하기
-                if Cx > center_X + 200:  # 오른쪽으로 이동
+                if Cx > center_X + 130:  # 오른쪽으로 이동
                     self.motion.move(grab=self.grabMode, direction="RIGHT", scope=MOTION["SCOPE"]["SHORT"])
-                elif Cx < center_X - 200:  # 왼쪽으로 이동
+                elif Cx < center_X - 130:  # 왼쪽으로 이동
                     self.motion.move(grab=self.grabMode, direction="LEFT", scope=MOTION["SCOPE"]["SHORT"])
-                elif center_X - 200 < Cx < center_X + 200:  # 왼쪽으로 장애물이 있으면 오른쪽으로 걷기
-                    return
+                elif center_X - 130 < Cx < center_X + 130:  # 왼쪽으로 장애물이 있으면 오른쪽으로 걷기
+                    break
             else:
+                if hold:
+                    print("dddddd")
+                    break
                 self.motion.walk(grab=self.grabMode, scope=MOTION["SCOPE"]["SHORT"])
+                time.sleep(0.5)
 
     def check_Side_Target(self):
         print("_______________check_Side_Target______________")
         target_SIDE = None
-        head_LR = ["LEFT80", "LEFT60", "RIGHT60", "RIGHT80"]
+        head_LR = ["LEFT75", "LEFT60", "RIGHT60", "RIGHT75"]
         while True:
             for LR in head_LR:
                 self.motion.head(view=MOTION["VIEW"]["DOWN30"], direction=MOTION["DIR"][LR])
@@ -316,57 +304,64 @@ class Robot:
             else:
                 self.motion.walk()
 
-    def Foward_To_DSTN(self, turn_cnt=None):
-        print("_______________Foward_To_DSTN_______________")
-        if self.citizen == 0: # 기존에 돌렸던 방향에서 반대로 돌기!
-            if self.target_SIDE == "RIGTH":
-                self.motion.turn(grab=self.grabMode, repeat=turn_cnt + 5)
+    def Forward_To_DSTN(self, turn_cnt=None):
+        print("_______________Forward_To_DSTN_______________", turn_cnt)
+        if self.citizen == 0:  # 기존에 돌렸던 방향에서 반대로 돌기!
+            if self.target_SIDE == "RIGHT":
+                print(turn_cnt, "RIGHT")
+                self.motion.turn(grab=self.grabMode, direction="LEFT", repeat=turn_cnt + 5)
             elif self.target_SIDE == "LEFT":
-                self.motion.turn(grab=self.grabMode, grab_direction=MOTION["GRAB_TURN"]["RIGHT"],
-                                 repeat=turn_cnt + 7)
-        else: # 목적지가 뒤에 있으니까 아예돌아버리기
+                print(turn_cnt, "LEFT")
+                self.motion.turn(grab=self.grabMode, direction="LEFT", repeat=turn_cnt + 5)
+                # self.motion.turn(grab=self.grabMode, direction="RIGHT", repeat=turn_cnt + 7)
+        else:  # 목적지가 뒤에 있으니까 아예돌아버리기
             if self.target_SIDE == "LEFT":
-                self.motion.turn(repeat=turn_cnt + 5)
+                print(turn_cnt, "LEFT")
+                self.motion.turn(grab=self.grabMode, direction="LEFT", repeat=turn_cnt + 15)
             else:  # 오른쪽 턴 안잡고
-                self.motion.turn(direct=MOTION["DIR"]["RIGHT"], repeat=turn_cnt + 7)
+                self.motion.turn(grab=self.grabMode, direction="LEFT", repeat=turn_cnt + 15)
+                # self.motion.turn(grab=self.grabMode, direction="RIGHT", repeat=turn_cnt + 17)
+                print(turn_cnt, "RIGHT")
 
     def Find_Detail_DSTN(self):
-
+        # self.location.walkCount = 4  # 디버깅 모드
         # 0.....이제 남은 거리를 토대로 목각도를 계산해서 and 돌아갈거리 설정 -> 걸음수 update!
         if self.citizen == 0:  # citizen=0, 목적지거리-객체거리만큼만, citizen>=1 자신이 걸어왔던 거리만큼 돌아가면됨
-            self.location.walkCount = 14 - self.location.walkCount
+            self.location.walkCount = 20 - self.location.walkCount
+        # DEBUGGING
         angle = self.location.distance_To_angle(self.location.walkCount)
         head = "DOWN" + angle  # "30"
 
         # 1.....이제 목만 좌우로 움직이면서 탐색한다 ← →
         head_LR = ["LEFT90", "LEFT60", "LEFT45", "LEFT30", "CENTER", "RIGHT30", "RIGHT45", "RIGHT60", "RIGHT90"]
-
         # 2.....목적지가 될 수 있는 면적들을 탐색한다.
         area_lst = []
         for LR in head_LR:
-            print("Find_Detail_DSTN    !!!!!!!!방향!!!!!!!!", LR, head)
             self.motion.head(view=MOTION["VIEW"][head], direction=MOTION["DIR"][LR])
-            area = self.imageProcessor.colorDetected_Area("GREEN")
+            img_color, area = self.imageProcessor.colorDetected_Area("GREEN")
+            self.imageProcessor.debug(img_color)
             if area:  # 각 라인에 대한 초록색의 위치 데이터를 저장
                 area_lst.append((LR, area))
+                print("Find_Detail_DSTN/    !!!!!!!!방향!!!!!!!!", LR, head, area)
 
         area_lst = sorted(area_lst, key=lambda x: x[1], reverse=True)
         direction = area_lst[0][0]  # LEFT / RIGHT
         max_area = area_lst[0][1]  # 가장 컸던 면적 = 목적지면적
+        print("max_area", max_area)
 
-
+        self.motion.head(view=MOTION["VIEW"][head], direction=MOTION["DIR"]["CENTER"])
         # 3......앞서 목적지의 크기라고 생각하는 면적이 나올때까지 돌린다
         while True:
-            Area = self.imageProcessor.colorDetected_Area("GREEN")
-            if max_area - 300 <= Area <= max_area:  #▶▶▶▶▶▶▶▶▶▶▶▶▶▶▶ 이부분 목적지와 그냥 우유곽이 구분되는 면적 다시 setting
+            img_color, Area = self.imageProcessor.colorDetected_Area("GREEN")
+            print("area_contect:", Area)
+            if max_area * 0.8 <= Area <= max_area * 1.2:  # ▶▶▶▶▶▶▶▶▶▶▶▶▶▶▶ 이부분 목적지와 그냥 우유곽이 구분되는 면적 다시 setting
                 self.motion.head(view=MOTION["VIEW"]["DOWN18"], direction=MOTION["DIR"]["CENTER"])
                 break
             else:
                 if "LEFT" in direction:
-                    self.motion.turn(grab=self.grabMode)
+                    self.motion.turn(grab=self.grabMode, direction="LEFT")
                 elif "RIGHT" in direction:
-                    self.motion.turn(grab=self.grabMode, grab_direction=MOTION["GRAB_TURN"]["RIGHT"],
-                                     direct=MOTION["DIR"]["RIGHT"])
+                    self.motion.turn(grab=self.grabMode, direction="RIGHT")
 
     def Find_Detail_DSTN_original(self, final=None):
         print("checkDestination", final)
@@ -412,38 +407,65 @@ class Robot:
         self.possible = sorted(self.possible, key=lambda x: x[2], reverse=True)  # 가장 면적이 큰 순서로 정렬한다
         print("가장큰 각도들과 크기순서로!!", self.possible)
 
-
     def Find_Next_Target(self):
         print("_________Find_Next_Target__________ 다음 객체탐색")
-        self.motion.turn(repeat=6)
-        self.motion.head(view=MOTION["VIEW"]["DOWN60"], direction=MOTION["DIR"]["CENTER"])
-        # 1....... 다음 객체가 발견될때까지 몸을 돌린다
-        while True:
-            check_obj = self.imageProcessor.colorDetected("GREEN")
-            if check_obj: break
-            self.motion.turn(repeat=3)
 
-        # 2....... 해당 객체의 거리를 update 한다
-        self.checkCitizen("CENTER")
+        self.motion.head(view=MOTION["VIEW"]["DOWN10"], direction=MOTION["DIR"]["CENTER"])
+        while True:
+            self.motion.walk(walk_signal=MOTION["WALK"]["BACK"])
+            zone = self.imageProcessor.checkDSTN_OUT("GREEN")
+            if zone is not None: break
+
+        turn = 0
+        while turn != 7:
+            self.greenCentral(hold="on")
+            self.motion.turn(grab=self.grabMode, direction="LEFT", repeat=2)
+            turn += 1
 
         # 3....... 오류방지를 위해 목적지 부분을 벗어날때까지 앞으로 전진
-        self.motion.head(view=MOTION["VIEW"]["DOWN18"], direction=MOTION["DIR"]["CENTER"])
         while True:
             check_obj = self.imageProcessor.colorDetected("GREEN")
             if check_obj:
+                print("목적지를 벗어납니다.")
                 self.motion.walk()
+            else:
+                break
 
+        # 1....... 다음 객체가 발견될때까지 몸을 돌린다
+        self.motion.head(view=MOTION["VIEW"]["DOWN60"], direction=MOTION["DIR"]["CENTER"])
+        time.sleep(1)
+        while True:
+            check_obj, Area = self.imageProcessor.colorDetected_Area("GREEN")
+            self.imageProcessor.debug(check_obj)
+            if Area:
+                print(Area)
+                self.checkCitizen("CENTER")
+                break
+            else:
+                self.motion.turn(grab=self.grabMode, direction="LEFT", repeat=3)
 
-
-
-
-
+    def grab_forward(self):
+        print("물건을 집습니다.")
+        # 1..........물건을 집고
+        while True:
+            check_obj, Cx, Cy = self.imageProcessor.colorDetected_Center("GREEN")
+            print(Cy)
+            if Cy < 300:  # 110< 여기서 집었을때의 조건을 다시 주기
+                self.motion.grab()
+                if self.motion.check_GRAB() >= 110:
+                    self.grabMode = "GRAB"
+                    break
+                else:
+                    self.motion.grab(switch="OFF")
+                    self.motion.walk(scope=MOTION["SCOPE"]["SHORT"])
+            else:
+                self.motion.walk(scope=MOTION["SCOPE"]["SHORT"])
 
     def debuggingMode(self, direction, angle):
         self.motion.init()
         targetAngle = "DOWN" + angle
         self.motion.head(view=MOTION["VIEW"][targetAngle], direction=MOTION["DIR"][direction])
-        color_lst = ["WHITE"]
+        color_lst = ["GREEN"]
         while True:
             for color in color_lst:
                 img_color, img_mask = self.imageProcessor.getBinImage(color=color)
@@ -458,11 +480,13 @@ class Robot:
                 cv2.line(img_color, (x, y), (x, y), (255, 0, 0), 1)
                 cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
                 area = cv2.contourArea(obstacle_lst[-1])
-                print("danger!!", self.imageProcessor.checkDNGR_ZONE)
                 print("넓이={},높이={}=> (cx={}, cy={})".format(img_color.shape[1], img_color.shape[0], Cx, Cy),
                       "면적은", area / 306081 * 100)
+                if img_color.shape[1] * (0.8) < Cx:
+                    print("RIGHT", Cx)
+                elif img_color.shape[1] * (0.2) > Cx:
+                    print("LEFT", Cy)
                 self.imageProcessor.debug(img_color)
-
 
 
 if __name__ == "__main__":
@@ -472,6 +496,35 @@ if __name__ == "__main__":
     # p.start()
     t = Thread(target=cam.produce, args=(imageProcessor,))  # 카메라 센싱 쓰레드
     t.start()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
