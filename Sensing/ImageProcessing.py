@@ -40,15 +40,16 @@ COLORS["RED"] = {
     "upper": [[182, 255, 190], [182, 255, 190], [182, 255, 190]],
     "lower": [[102, 163, 68], [102, 163, 68], [102, 163, 68]]
 }
-COLORS[""] = {
-    "lower": [[], [], []],
-    "upper": [[], [], []]
+COLORS["MAP"] = {
+    "lower": [[124, 30, 154], [124, 30, 154], [124, 30, 154]],
+    "upper": [[160, 49, 185], [160, 49, 185], [160, 49, 185]]
 }
-COLORS["WHITE2"] = {
+
+COLORS["WHITE"] = {
     "lower": [[0, 12, 61], [0, 12, 61], [0, 12, 61]],
     "upper": [[16, 54, 145], [16, 54, 145], [16, 54, 145]]
 }
-COLORS["WHITE"] = {
+COLORS["WHITE2"] = {
     "lower": [[124, 20, 104], [124, 20, 104], [124, 20, 104]],
     "upper": [[170, 39, 135], [170, 39, 135], [170, 39, 135]]
 }
@@ -235,6 +236,7 @@ class ImageProcessor:
 
         # 원하는 색깔을 주면 됨
         color = "GREEN"
+        color_lst = ["GREEN", "RED", "BLUE"]
 
         # for color in color_lst:
         RBG_lst = ""  # 한 화면의 결과를 담는 창 "RED", "BLUE", "GREEN" 순으로
@@ -246,41 +248,33 @@ class ImageProcessor:
         contours, hierarchy = cv2.findContours(img_mask, cv2.RETR_TREE,
                                                cv2.CHAIN_APPROX_SIMPLE)
 
+        for cnt in contours:
+            area = cv2.contourArea(cnt)
+            x, y, w, h = cv2.boundingRect(cnt)
+            print("area: ", area)
+            # 무게중심
+            Cx = x + w // 2
+            Cy = y + h // 2
+            # 같은 색상이라도 무게중심의 y값이 작은것일 수록 더 가까이 있음
+            # 무게중심이 아래로 내려가서 시야에서 가려지기전에 가려질 듯하면-> 목각도를 내려서 타깃을 확인한다 : 주의 끊기면 안됨 물체추적 끝남
 
-        if contours:
-            obstacle_lst = sorted(contours, key=lambda cc: len(cc))
-            x, y, w, h = cv2.boundingRect(obstacle_lst[-1])
-            Cx = x + w//2
-            Cy = y + h//2
-            if mode == "checkCitizen" and img_color.shape[1] // 4 < x + w // 2 < 3 * (img_color.shape[1] // 4):  # 노이즈를 제거하기 위해 일정 넓이 이상의 물체만 잡는다
+            if mode == "checkCitizen" and img_color.shape[1] // 4 < x + w // 2 < 3 * (
+                    img_color.shape[1] // 4):  # 노이즈를 제거하기 위해 일정 넓이 이상의 물체만 잡는다
                 RBG_lst += color[0]  # 색상값RGB를 집어넣는다
                 cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
                 cv2.line(img_color, (Cx, Cy), (Cx, Cy), (0, 0, 255), 10)
-
-
-            else:
-                for cnt in contours:
-                    area = cv2.contourArea(cnt)
-                    x, y, w, h = cv2.boundingRect(cnt)
-                    print("area: ", area)
-                    # 무게중심
-                    Cx = x + w // 2
-                    Cy = y + h // 2
-                    # 같은 색상이라도 무게중심의 y값이 작은것일 수록 더 가까이 있음
-                    # 무게중심이 아래로 내려가서 시야에서 가려지기전에 가려질 듯하면-> 목각도를 내려서 타깃을 확인한다 : 주의 끊기면 안됨 물체추적 끝남
-
-                if mode == "destination2" and area > 20000:
-                    RBG_lst += color[0]  # 색상값RGB를 집어넣는다
-                    cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
-                    cv2.line(img_color, (Cx, Cy), (Cx, Cy), (0, 0, 255), 10)
-                elif mode == "destination" and area > 20000:  # 크기를 넘겨준다
-                    area_lst.append(area)  # 색상값RGB를 집어넣는다
-                    cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
-                    cv2.line(img_color, (Cx, Cy), (Cx, Cy), (0, 0, 255), 10)
-                elif mode == "alone":
-                    RBG_lst += color[0]  # 색상값RGB를 집어넣는다
-                    cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
-                    cv2.line(img_color, (Cx, Cy), (Cx, Cy), (0, 0, 255), 10)
+            elif mode == "destination2" and area > 20000:
+                RBG_lst += color[0]  # 색상값RGB를 집어넣는다
+                cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
+                cv2.line(img_color, (Cx, Cy), (Cx, Cy), (0, 0, 255), 10)
+            elif mode == "destination" and area > 20000:  # 크기를 넘겨준다
+                area_lst.append(area)  # 색상값RGB를 집어넣는다
+                cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
+                cv2.line(img_color, (Cx, Cy), (Cx, Cy), (0, 0, 255), 10)
+            elif mode == "alone":
+                RBG_lst += color[0]  # 색상값RGB를 집어넣는다
+                cv2.rectangle(img_color, (x, y), (x + w, h + y), (0, 0, 255), 2)
+                cv2.line(img_color, (Cx, Cy), (Cx, Cy), (0, 0, 255), 10)
 
         if (debug):
             # re_mask = img_mask.copy()
@@ -311,7 +305,7 @@ class ImageProcessor:
             Cy = y + h // 2
             Cx = x + w // 2
 
-            if (area_rate) > 0.05:  # 우선 맵 밖의 영역이 50% 이상이면 위험모드
+            if (area_rate) > 0.07:  # 우선 맵 밖의 영역이 50% 이상이면 위험모드
                 print("area_rate: ", (area / full_area), "Cy:", Cy, "Cx:", Cx)
                 if Cy > 50:
                     dngr_ZONE = "FRONT"
@@ -364,8 +358,8 @@ class ImageProcessor:
         if debug:
             self.debug(img_color)
         return detected
-        # 특정 색상의 객체가 존재하는지 확인하는 함수
 
+    # 특정 색상의 객체가 존재하는지 확인하는 함수
     def colorDetected_Center(self, color, debug=True):
         detected = False
         Cx = 0
