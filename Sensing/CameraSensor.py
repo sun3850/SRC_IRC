@@ -3,8 +3,7 @@ import time
 # import argparse
 # import multiprocessing
 # from .ImageProcessing import ImageProcessor
-CAM_ID = 0
-
+CAM_ID = 0 
 class Camera:
     def __init__(self, fps=0.1):
         self.fps = fps
@@ -16,11 +15,14 @@ class Camera:
         self.cap.set(4, self.height)
         self.fourcc = None
         self.out = None
+
+        
+
         
     def produce(self, consumer, record=True, filename="out"):
         if record:
-            self.fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # 녹화기 생성
-            self.out = cv2.VideoWriter(str(filename)+'.mp4', self.fourcc, 30.0, (self.width*2, self.height*2))
+            self.fourcc = cv2.VideoWriter_fourcc(*'MJPG')  # 녹화기 생성
+            self.out = cv2.VideoWriter(str(filename)+'.avi', self.fourcc, 30.0, (self.width, self.height))
 
         while (True):
             ret, frame = self.cap.read()
@@ -29,7 +31,7 @@ class Camera:
                 continue
             consumer.updateImage(frame)
             if record:
-                self.out.write(consumer.debug())
+                self.out.write(frame)
             time.sleep(self.fps)
             # 업데이트 속도 초당 몇 프레임
 
