@@ -8,8 +8,8 @@ MOTION = {
     # 머리 상하좌우 회전
     "VIEW": {"DOWN90": 0, "DOWN80": 1, "DOWN60": 2, "DOWN45": 3, "DOWN35": 4, "DOWN30": 5, "DOWN10": 6, "DOWN18": 17},
     # 로봇 몸 전체 회전 10도/머리 좌우 회전
-    "DIR": {"LEFT": 0, "RIGHT": 2, "LEFT30": 7, "LEFT45": 8, "LEFT60": 9, "LEFT90": 10, "RIGHT30": 13,
-            "RIGHT45": 14, "RIGHT60": 15, "RIGHT90": 16, "CENTER": 11},
+    "DIR": {"LEFT": 0, "RIGHT": 2, "LEFT30": 7, "LEFT45": 8, "LEFT60": 9, "LEFT75": 22, "LEFT90": 10, "RIGHT30": 13,
+            "RIGHT45": 14, "RIGHT60": 15, "RIGHT75": 23, "RIGHT90": 16, "CENTER": 42},
     "SCOPE": {"NORMAL": 0, "SHORT": 9},
     "SPEED": {"FAST": 0, "RUN": 1, "SLOW": 2},
 
@@ -18,7 +18,7 @@ MOTION = {
         "END": 400,
         "BACK": 10
     },
-    "GRAB": {"DISTANCE": 5, "ON": 30, "OFF": 27, "WALK": 41, "TURN": {"RIGHT": 6, "LEFT": 7},
+    "GRAB": {"DISTANCE": 5, "ON": 29, "OFF": 27, "WALK": 41, "TURN": {"RIGHT": 6, "LEFT": 7},
              "MOVE": {"LEFT": 31, "RIGHT": 32}}
 }
 
@@ -73,9 +73,9 @@ class Motion:
                 if RX != 100:
                     self.distance = RX
                 if RX == 100:
-                    print("motion end")
+                    # print("motion end")
                     self.lock = False
-                print("RX=" + str(RX))
+                # print("RX=" + str(RX))
                 # -----  remocon 16 Code  Exit ------
                 if RX == 16:
                     self.receiving_exit = 0
@@ -126,16 +126,20 @@ class Motion:
                 if direction is "LEFT":
                     for _ in range(repeat):
                         self.TX_data_py2(MOTION["MODE"]["MOVE"] + scope + MOTION["DIR"]["LEFT"])
+                        time.sleep(0.5)
                 elif direction is "RIGHT":
                     for _ in range(repeat):
                         self.TX_data_py2(MOTION["MODE"]["MOVE"] + scope + MOTION["DIR"]["RIGHT"])
+                        time.sleep(0.5)
             elif grab is "GRAB":
                 if direction is "LEFT":
                     for _ in range(repeat):
                         self.TX_data_py2(MOTION["MODE"]["MOVE"] + scope + MOTION["GRAB"]["MOVE"]["LEFT"])
+                        time.sleep(0.5)
                 elif direction is "RIGHT":
                     for _ in range(repeat):
                         self.TX_data_py2(MOTION["MODE"]["MOVE"] + scope + MOTION["GRAB"]["MOVE"]["RIGHT"])
+                        time.sleep(0.5)
             while self.getRx():
                 continue
         pass
