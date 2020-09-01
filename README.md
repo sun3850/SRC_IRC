@@ -7,7 +7,8 @@
 ------------ | ------------- | -------------
 유선종| [![Github Badge](https://img.shields.io/badge/YooSunJong-181717?style=flat-square&logo=github&logoColor=white&link=https://github.com/YooSunJong)](https://github.com/YooSunJong)| 모션제어
 조혜영 | [![Gmail Badge](https://img.shields.io/badge/Gmail-d14836?style=flat-square&logo=Gmail&logoColor=white&link=mailto:jpark0902@kookmin.ac.kr)](mailto:jpark0902@kookmin.ac.kr) [![Github Badge](https://img.shields.io/badge/dodo486-181717?style=flat-square&logo=github&logoColor=white&link=https://github.com/dodo486)](https://github.com/dodo486)| 영상처리
-박정 | [![Gmail Badge](https://img.shields.io/badge/Gmail-d14836?style=flat-square&logo=Gmail&logoColor=white&link=mailto:jpark0902@kookmin.ac.kr)](mailto:jpark0902@kookmin.ac.kr) [![Github Badge](https://img.shields.io/badge/jeonghi-181717?style=flat-square&logo=github&logoColor=white&link=https://github.com/jeonghi)](https://github.com/jeonghi)| 영상처리
+박정환 | [![Gmail Badge](https://img.shields.io/badge/Gmail-d14836?style=flat-square&logo=Gmail&logoColor=white&link=mailto:jpark0902@kookmin.ac.kr)](mailto:jpark0902@kookmin.ac.kr) [![Github Badge](https://img.shields.io/badge/jeonghi-181717?style=flat-square&logo=github&logoColor=white&link=https://github.com/jeonghi)](https://github.com/jeonghi)| 영상처리
+
 **2. 시현 및 알고리즘 인식률**
 ---- 
 [![Video Label](http://img.youtube.com/vi/TQZb5LhY7eA/0.jpg)](https://www.youtube.com/embed/TQZb5LhY7eA")
